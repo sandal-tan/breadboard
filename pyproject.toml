@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pico-enclosure"
+version = "0.1.0"
+description = ""
+authors = ["Ian Baldwin <ian@iantbaldw.in>"]
+readme = "README.md"
+packages = [{include = "pico_enclosure"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+rshell = "^0.0.31"
+adafruit-ampy = "^1.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pylint = "^2.16.1"
+black = "^23.1.0"
+mypy = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
