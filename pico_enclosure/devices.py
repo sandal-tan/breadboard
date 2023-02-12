@@ -40,18 +40,17 @@ class Devices:
             device_json = json.load(fp)
 
         self.devices = {
-            entry["name"]: DEVICE_MAP[entry["device"]](
+            name: DEVICE_MAP[entry["device"]](
                 **{
                     k: v
                     for k, v in entry.items()
                     if k
                     not in [
                         "device",
-                        "name",
                     ]
                 }
             )
-            for entry in device_json
+            for name, entry in device_json.items()
         }
 
     def __getitem__(self, key):
