@@ -1,8 +1,11 @@
 """Interact with an LED strip inside the enclosure."""
+import uasyncio as asyncio
 from time import sleep_ms
 
 from machine import Pin
 from neopixel import NeoPixel
+
+from .api import api
 
 DELAY = 500
 
@@ -22,7 +25,11 @@ class LEDStrip:
         self._state = [(0, 0, 0)] * len(self)
         self.blacklist = blacklist or []
 
-    def fill(self, red: int, green: int, blue: int, brightness: float = 1):
+        api.route("/led/fill")(self.fill)
+        api.route("/led/on")(self.on)
+        api.route("/led/off")(self.off)
+
+    async def fill(self, red: int, green: int, blue: int, brightness: float = 1):
         """Fill the LED with a single color.
 
         Args:
@@ -32,14 +39,17 @@ class LEDStrip:
             brightness: A relative brightness scaling across all channels (0-100)
 
         """
-        color_tuple = [round(e * brightness) for e in (red, green, blue)]
+        if not isinstance(brightness, (float, int)):
+            brightness = float(brightness)
+        color_tuple = [round(e * brightness) for e in (int(red), int(green), int(blue))]
         for idx in range(len(self)):
             if idx in self.blacklist:
                 continue
             self._np[idx] = color_tuple
             self._state[idx] = color_tuple
         self._np.write()
-        sleep_ms(DELAY)
+        await asyncio.sleep(DELAY / 1000)
+        return True
 
     def gradient(self, start, end, brightness: float = 1):
         ranges = [
@@ -62,15 +72,17 @@ class LEDStrip:
         self._np.write()
         sleep_ms(DELAY)
 
-    def on(self):
+    async def on(self):
         for idx, entry in enumerate(self._state):
             self._np[idx] = entry
         self._np.write()
+        return True
 
-    def off(self):
+    async def off(self):
         for idx in range(len(self)):
             self._np[idx] = (0, 0, 0)
         self._np.write()
+        return True
 
     def __len__(self):
         return self._length

@@ -1,18 +1,21 @@
 """Aggregate and manage attached devices via a configuration file.
 
 ```json
-[
-    {
+{
+    "exhaust_fan": {
         "device": "Fan",
         "pin": 17
     },
-    {
+    "lights": {
         "device": "LEDStrip",
         "pin":  27,
         "led_count": 12
+    },
+    "network": {
+        "ssid": "xxyyzz",
+        "password": "asdf1234"
     }
-]
-
+}
 ```
 
 """
@@ -20,6 +23,7 @@ import json
 
 from .fan import Fan
 from .led_strip import LEDStrip
+from .network import Network
 
 DEVICE_MAP = {
     "Fan": Fan,
@@ -39,6 +43,8 @@ class Devices:
         with open(path, "r") as fp:
             device_json = json.load(fp)
 
+        self._network = Network(**device_json.get("network") or {})
+
         self.devices = {
             name: DEVICE_MAP[entry["device"]](
                 **{
@@ -51,6 +57,7 @@ class Devices:
                 }
             )
             for name, entry in device_json.items()
+            if name not in ["network"]
         }
 
     def __getitem__(self, key):
