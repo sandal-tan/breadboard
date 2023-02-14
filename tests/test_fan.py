@@ -1,4 +1,5 @@
 from time import sleep
+import uasyncio as asyncio
 
 from machine import Pin
 from pico_enclosure.devices import Devices
@@ -10,14 +11,14 @@ try:
     fan = devices["exhaust_fan"]
 
     for speed in range(0, 105, 5):
-        fan.set(speed)
+        asyncio.run(fan.set(speed))
         sleep(2)
 
-    fan.set(50)
+    asyncio.run(fan.set(50))
     sleep(2)
-    fan.off()
+    asyncio.run(fan.off())
     sleep(10)
-    fan.on()
+    asyncio.run(fan.on())
 
 finally:
     led.value(0)

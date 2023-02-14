@@ -1,6 +1,5 @@
 """Interact with an LED strip inside the enclosure."""
 import uasyncio as asyncio
-from time import sleep_ms
 
 from machine import Pin
 from neopixel import NeoPixel
@@ -14,20 +13,25 @@ class LEDStrip:
     """A NeoPixel LED Strip.
 
     Args:
+        name: A unique identifer for the LED strip
         pin: The pin to which the LED strip is connteted.
         led_count: The number of LEDs in the strip
+        blacklist: Indexes of LEDs to skip in the strip
 
     """
 
-    def __init__(self, pin: int, led_count: int, blacklist: list[int] = None):
+    def __init__(
+        self, name: str, pin: int, led_count: int, blacklist: list[int] = None
+    ):
+        self.name = name
         self._length = led_count
         self._np = NeoPixel(Pin(pin), led_count)
         self._state = [(0, 0, 0)] * len(self)
         self.blacklist = blacklist or []
 
-        api.route("/led/fill")(self.fill)
-        api.route("/led/on")(self.on)
-        api.route("/led/off")(self.off)
+        api.route(f"/{self.name}/fill")(self.fill)
+        api.route(f"/{self.name}/on")(self.on)
+        api.route(f"/{self.name}/off")(self.off)
 
     async def fill(self, red: int, green: int, blue: int, brightness: float = 1):
         """Fill the LED with a single color.
@@ -48,37 +52,18 @@ class LEDStrip:
             self._np[idx] = color_tuple
             self._state[idx] = color_tuple
         self._np.write()
-        await asyncio.sleep(DELAY / 1000)
+        await asyncio.sleep_ms(DELAY)
         return True
 
-    def gradient(self, start, end, brightness: float = 1):
-        ranges = [
-            range(
-                start[idx],
-                end[idx],
-                round(abs(start[idx] - end[idx]) / len(self)) * -1
-                if start[idx] > end[idx]
-                else 1,
-            )
-            for idx in range(3)
-        ]
-
-        for idx, rgb in enumerate(zip(*ranges)):
-            if idx in self.blacklist:
-                continue
-            color_tuple = [round(c * brightness) for c in rgb]
-            self._np[idx] = color_tuple
-            self._state[idx] = color_tuple
-        self._np.write()
-        sleep_ms(DELAY)
-
     async def on(self):
+        """Turn the LED strip on, restoring it to the previouslly set values."""
         for idx, entry in enumerate(self._state):
             self._np[idx] = entry
         self._np.write()
         return True
 
     async def off(self):
+        """Turn off the LED strip."""
         for idx in range(len(self)):
             self._np[idx] = (0, 0, 0)
         self._np.write()

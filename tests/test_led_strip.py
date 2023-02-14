@@ -1,3 +1,4 @@
+import uasyncio as asyncio
 from time import sleep
 
 from machine import Pin
@@ -14,20 +15,13 @@ try:
         (0, 255, 0),  # green
         (0, 0, 255),  # blue
     ]:
-        strip.fill(*var)
+        asyncio.run(strip.fill(*var))
         sleep(2)
 
-    for gradient in [
-        ((255, 0, 0), (0, 255, 0)),  # Red to Green
-        ((0, 255, 0), (255, 0, 255)),  # Green to Purple
-    ]:
-        strip.gradient(*gradient)
-        sleep(2)
-
-    strip.fill(255, 255, 255, 0.1)
+    asyncio.run(strip.fill(255, 255, 255, 0.1))
     sleep(2)
-    strip.off()
+    asyncio.run(strip.off())
     sleep(2)
-    strip.on()
+    asyncio.run(strip.on())
 finally:
     led.value(0)

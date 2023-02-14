@@ -2,29 +2,75 @@
 
 from machine import Pin, PWM
 
+from .api import api
+
 
 class Fan:
     """A 4-Pin PWM Fan.
 
     Args:
+        name: A unique identifier for the fan. Will be used as an API path
         pin: The GPIO pin on to which the fan signal is conntect
         freq: The requied PWM frequence of the fan
+        idle: The default speed of the fan
+        max_duty_cycle: The allowable maximum is 65535, tweak if fan does not turn off correctly.
 
     """
 
-    def __init__(self, pin: int, freq: int = 25000):
+    def __init__(
+        self,
+        name: str,
+        pin: int,
+        freq: int = 25000,
+        idle: int = 25,
+        max_duty_cycle: int = 65530,
+    ):
+        self.name = name
         self._pwm_fan = PWM(Pin(pin))
-        self._speed_value = 0
+        self._speed_value = idle
+        self.max_duty_cycle = max_duty_cycle
 
-    def on(self):
+        api.route(f"/{self.name}/on")(self.on)
+        api.route(f"/{self.name}/off")(self.off)
+        api.route(f"/{self.name}/set")(self.set)
+
         self._set(self._speed_value)
 
-    def off(self):
+    async def on(self):
+        """Turn the fan on.
+
+        Returns:
+            The speed value of the fan.
+
+        """
+        self._set(self._speed_value)
+        return self._speed_value
+
+    async def off(self):
+        """Turn off the fan.
+
+        Returns:
+            True
+
+        """
         self._set(0)
+        return True
 
     def _set(self, value: int):
-        self._pwm_fan.duty_u16(round((100 - value) / 100 * 65535))
+        value = round((100 - value) / 100 * self.max_duty_cycle)
 
-    def set(self, value: int):
-        self._speed_value = value
+        self._pwm_fan.duty_u16(value)
+
+    async def set(self, value: int):
+        """Set the fan speed as a percentage.
+
+        Args:
+            value: The percentage (0-100) of speed that the fan should be set to
+
+        Returns:
+            The set speed value
+
+        """
+        self._speed_value = int(value)
         self._set(self._speed_value)
+        return value

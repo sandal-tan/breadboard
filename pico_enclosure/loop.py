@@ -10,7 +10,11 @@ from .api import api
 
 
 async def loop():
-    Devices()
+    devices = Devices()
+
+    for action, action_func in devices.actions.items():
+        api.route(f"/action/{action}")(action_func)
+
     led = Pin("LED", Pin.OUT)
     led.value(1)
     try:
