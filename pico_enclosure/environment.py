@@ -1,10 +1,13 @@
 """Environment sensors."""
 
-from time import sleep_ms, sleep_us, time  # pyright: ignore
+from time import sleep_ms, time  # pyright: ignore[reportGeneralTypeIssues]
 
-from machine import SoftI2C, Pin  # pyright: ignore
-from micropython import const  # pyright: ignore
-import uasyncio as asyncio  # pyright: ignore
+
+from rp2 import PIO, asm_pio, StateMachine  # pyright: ignore[reportMissingImports]
+
+from machine import SoftI2C, Pin  # pyright: ignore[reportMissingImports]
+from micropython import const  # pyright: ignore[reportMissingImports]
+import uasyncio as asyncio  # pyright: ignore[reportMissingImports]
 
 from .api import api
 
@@ -243,18 +246,100 @@ class CCS811:
         return self._parse_error(data)
 
 
-class DHTXX:
-    """Temperature and humidity sensor."""
+_DHTXX_SM_CLOCK_FREQ = 500000  # 1 / 500Khz = 2us cycle
 
-    def __init__(self, name, pin, rest_time: int) -> None:
+
+@asm_pio(
+    set_init=PIO.OUT_HIGH,  # Interaction Pin should be set to HIGH
+    autopush=True,  # Automatically push data onto the FIFO queue
+    push_thresh=8,  # Push when there are 8 available bits
+)
+def _DHTXX_PIO_ASM():
+    """State machine assembly for the Pico to interface with a DHTXX sensor.
+
+    Sources:
+        - https://github.com/danjperron/PicoDHT22/blob/main/PicoDHT22.py
+        - https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf#section_pio
+        - https://www.i-programmer.info/programming/hardware/14572-the-pico-in-micropython-a-pio-driver-for-the-dht22.html?start=1
+
+    """
+    # 1. ---- Pull the pin low for > 1ms(DHT22, AM2302)|18ms(DHT11)
+    # 2. ---- Pull the pin high for 20-40us
+    # 3. ---- Sensor pulls low for 80us
+    # 4. ---- Sensor pulls high for 80us
+    # 5. ---- Sensor pulls low for 50us to indicate start of bit pulse
+    # 6. ---- Wait 35-40us and read pin for bit designation
+    # 7. ---- Repeat
+    pull()  #               1 - (1) Pull input from OSR
+    mov(x, osr)  #          2 - (1) Move our low time value into x
+    set(pindirs, 1)  #      3 - (1) Set pin to output
+    set(pins, 0)  #         4 - (1) Drive pin low
+    label("wait")  #        5 - (1)
+    jmp(x_dec, "wait")  #   6 - (1) loop if non-zero, post decrement
+    set(pins, 1)[19]  #     7 - (2) Drive pin high, delay for 19 cycles, 40us total
+    set(pindirs, 0)  #      8 - (3) Set pin to input
+    wait(1, pin, 0)  #      9 - (4) Wait for base pin to go high
+    wait(0, pin, 0)  #     10 - (5) Wait for base pin to go low
+    label("bit_loop")  #   11 - (7)
+    wait(1, pin, 0)[17]  # 12 - (6) Wait for base pin go high, delay 18 cycles (36us)
+    in_(pins, 1)  #        13 - (6) Write current pin state to ISR
+    wait(0, pin, 0)  #     14 - (6) Wait for pin to go low
+    jmp("bit_loop")  #     15 - (7) Return to start of the bit loop
+
+
+class DHTXX:
+    """Family of temperature and humidity sensors.
+
+    Args:
+        name: A name for the sensor
+        pin: The data pin of the sensor
+        rest_time: How long to rest in between taking samples. This value is sensor-model dependent
+        initial_low_pulse_duration: How long to pull low for initially. This value is sensor-model dependent
+        state_machine_id: An Id of the state machine to use
+        unit: The unit of temperature to return. Supports 'celsius' and 'fahrenheit'.
+
+    """
+
+    def __init__(
+        self,
+        name,
+        pin,
+        rest_time: int,
+        initial_low_pulse_duration: int,
+        state_machine_id: int = 0,
+        unit: str = "celsius",
+    ) -> None:
         self.name = name
-        self.pin = Pin(pin)
-        self._last_measurement_time = 0
         self._rest_time = rest_time
+        self._initial_low_pulse_duration = round(
+            initial_low_pulse_duration
+            / 1000
+            * _DHTXX_SM_CLOCK_FREQ  # Convert a ms pulse duration to cycles
+        )
+
+        self._data_pin = Pin(pin)
+
+        self._state_machine = StateMachine(state_machine_id)
+
         self._temp = None
         self._humidity = None
 
-    async def measure(self):
+        self._last_measurement_time = 0
+        self._unit = unit
+
+        PIO(state_machine_id).remove_program()
+
+        self._state_machine.init(
+            _DHTXX_PIO_ASM,
+            freq=500_000,  # cycle time = 1 / freq = 2us cycles
+            set_base=self._data_pin,
+            in_base=self._data_pin,
+            jmp_pin=self._data_pin,
+        )
+
+        api.route(f"/{self.name}/data")(self.data)
+
+    async def data(self):
         """Use the sensor to take a measurement if one is available.
 
         A new measurement will only be allowed every ``self._rest_time`` seconds.
@@ -265,52 +350,43 @@ class DHTXX:
         """
         current_time = time()
         if current_time - self._last_measurement_time > self._rest_time:
-            # Send the start code
-            # Pull the pin low for 1ms
-            self.pin.value(0)
-            sleep_ms(1)
-            # Pull the pin high for 20-40us
-            self.pin.value(1)
-            sleep_us(30)
-            # Sensor pulls low for 80us
-            while self.pin.value() == 0:
-                sleep_us(40)
-            # Sensor pulls high for 80us
-            while self.pin.value() == 1:
-                sleep_us(40)
+            self._state_machine.put(
+                self._initial_low_pulse_duration
+            )  # Wait for at least 2ms
+            self._state_machine.active(1)
 
-            # Read Data
-            # Wait for the line to be pulled high and then wait
-            # longer than the duration of the 0-bit pulse, but
-            # not longer than the 1-bit pulse. Get the line value
-            # as the bit value, pack it in, and wait to read the next bit.
-            bits = 0
-            for idx in range(DHTXX_EXPECTED_BITS):
-                # Wait for the pin to go high
-                while self.pin.value() != 1:
-                    sleep_us(25)
+            bytes_ = [self._state_machine.get() for _ in range(5)]
+            self._state_machine.active(0)
+            humidity = bytes_[0] << 8 | bytes_[1]
+            raw_temp = bytes_[2] << 8 | bytes_[3]
 
-                sleep_us(35)
-
-                bits = bits | self.pin.value() << idx
-                while self.pin.value() == 1:
-                    sleep_us(35)
-
-            self._humidity = bits >> 24  # Get the first 2 bytes
-            raw_temp = bits >> 8 & 65535  # Get the middle byte
-            # First bit is sign, remaining 15 are temperature
-            self._temp = 1 if raw_temp >> 15 else -1 * raw_temp & (2**15 - 1)
-
-            checksum = bits & 255  # Get the last byte
-
-            # Checksum should be the sum of each byte in the temperature and humidity values
-            if checksum != (
-                (self._humidity >> 8)
-                + (self._humidity & 255)
-                + (raw_temp >> 8)
-                + (raw_temp & 255)
+            #  Checksum should be the last 8 bits of the sum of each byte in the temperature and humidity values
+            # Example:
+            # Checksum = 152 (1001_1000)
+            # >> [0000_0001, 1011_0101, 0000_0000, 1110_0010, 1001_1000]
+            # >> [        1,       181,         0,       226,       152]
+            # >> 1 + 181 + 0 + 226 = 408 = 1_1001_1000
+            # >> 408 & 0xFF = 152
+            if (
+                bytes_[4]
+                != (
+                    (humidity >> 8)
+                    + (humidity & 255)
+                    + (raw_temp >> 8)
+                    + (raw_temp & 255)
+                )
+                & 0xFF
             ):
                 raise Exception("Checksum validation failed.")
+
+            self._humidity = humidity / 10
+            # First bit is sign, remaining 15 are temperature
+            self._temp = (
+                (1 if not raw_temp >> 15 else -1) * (raw_temp & (2**15 - 1)) / 10
+            )
+
+            if self._unit == "fahrenheit":
+                self._temp = round(self._temp * 9 / 5 + 32, 1)
 
         return {
             "temperature": self._temp,
@@ -319,18 +395,45 @@ class DHTXX:
 
 
 class DHT11(DHTXX):
-    """A smaller, cheaper, higher sampling and less accurate temperature and humidity sensor."""
+    """A smaller, cheaper, higher sampling and less accurate temperature and humidity sensor.
 
-    def __init__(self, name, pin):
-        super().__init__(name, pin, 1)
+    Args:
+        name: A name for the DHT11 sensor
+        pin: The data pin of the DHT11 sensor
+
+    Sources:
+        - https://cdn-shop.adafruit.com/datasheets/DHT11-chinese.pdf
+
+    """
+
+    def __init__(self, name, pin, unit):
+        super().__init__(
+            name,
+            pin,
+            rest_time=1,  # 1Hz sampling
+            initial_low_pulse_duration=20,  # 20ms initial low pulse
+            unit=unit,
+        )
 
 
 class DHT22(DHTXX):
-    """A larger, more expensive, slow sampling and more accurate temperature and humidity sensor."""
+    """A larger, more expensive, slow sampling and more accurate temperature and humidity sensor.
 
-    def __init__(self, name, pin):
-        super().__init__(name, pin, 2)
+    Args:
+        name: A name for the DHT22/AM2302 sensor
+        pin: The data pin for the DHT22/AM2302 sensor
 
+    Sources:
+        - https://www.sparkfun.com/datasheets/Sensors/Temperature/DHT22.pdf
+        - https://cdn-shop.adafruit.com/datasheets/Digital+humidity+and+temperature+sensor+AM2302.pdf
 
-AM2302 = DHT22
-"""A larger, more expensive, slow sampling and more accurate temperature and humidity sensor."""
+    """
+
+    def __init__(self, name, pin, unit):
+        super().__init__(
+            name,
+            pin,
+            rest_time=2,
+            initial_low_pulse_duration=2,
+            unit=unit,
+        )

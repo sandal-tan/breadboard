@@ -26,7 +26,7 @@ from micropython import const  # pyright: ignore
 from .fan import Fan
 from .led_strip import LEDStrip
 from .network import Network
-from .environment import CCS811, DHT11, DHT22, AM2302
+from .environment import CCS811, DHT11, DHT22
 
 DEVICE_MAP = {
     const("Fan"): Fan,
@@ -34,7 +34,7 @@ DEVICE_MAP = {
     const("CCS811"): CCS811,
     const("DHT11"): DHT11,
     const("DHT22"): DHT22,
-    const("AM2302"): AM2302,
+    const("AM2302"): DHT22,
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"

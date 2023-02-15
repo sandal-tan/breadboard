@@ -16,12 +16,12 @@ try:
         (0, 0, 255),  # blue
     ]:
         asyncio.run(strip.fill(*var))
-        sleep(2)
+        sleep(1)
 
     asyncio.run(strip.fill(255, 255, 255, 0.1))
-    sleep(2)
+    sleep(1)
     asyncio.run(strip.off())
-    sleep(2)
+    sleep(1)
     asyncio.run(strip.on())
 finally:
     led.value(0)

@@ -44,9 +44,9 @@ class LEDStrip:
         if not isinstance(brightness, (float, int)):
             brightness = float(brightness)
         color_tuple = (
-            round(red * brightness),
-            round(green * brightness),
-            round(blue * brightness),
+            round(int(red) * brightness),
+            round(int(green) * brightness),
+            round(int(blue) * brightness),
         )
         for idx in range(len(self)):
             if idx in self.blacklist:
@@ -59,8 +59,8 @@ class LEDStrip:
 
     async def on(self):
         """Turn the LED strip on, restoring it to the previously set values."""
-        for idx, entry in enumerate(self._state):
-            self._np[idx] = entry
+        for led, colors in self._state.items():
+            self._np[led] = colors
         self._np.write()
         return True
 
