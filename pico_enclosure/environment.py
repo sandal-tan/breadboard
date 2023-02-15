@@ -327,11 +327,12 @@ class DHTXX:
         self._last_measurement_time = 0
         self._unit = unit
 
+        # TODO manage using multiple state machines automatically
         PIO(state_machine_id).remove_program()
 
         self._state_machine.init(
             _DHTXX_PIO_ASM,
-            freq=500_000,  # cycle time = 1 / freq = 2us cycles
+            freq=_DHTXX_SM_CLOCK_FREQ,
             set_base=self._data_pin,
             in_base=self._data_pin,
             jmp_pin=self._data_pin,
