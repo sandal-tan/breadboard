@@ -21,7 +21,7 @@ class API:
 
         def _wrap_func(func):
             self._routes[route] = func
-            self._doc += f"<h2>{route}</h2>\n"
+            self._doc += f'<h2><a href="{route}">{route}</h2>\n<hr>\n'
             return func
 
         return _wrap_func
@@ -39,7 +39,8 @@ class API:
         while await reader.readline() != b"\r\n":  # Ignore headers
             pass
 
-        _, request_path, proto = request.split(
+        # method, path, protocol
+        _, request_path, _ = request.split(
             " "
         )  # Break apart "GET \this\path?arg=1 HTTP/1.1"
         parts = request_path.split("?")
@@ -57,29 +58,35 @@ class API:
             result = "<h1>404 - Page Not Found</h1>\n\n" + self._doc
             response_code = "404 PAGE NOT FOUND"
         except Exception as e:
-            result = "<h1>500 - An Internal error has occured.</h1>"
+            result = "<h1>500 - An Internal error has occurred.</h1>"
             response_code = "500 INTERNAL SERVER ERROR"
-            sys.print_exception(e)
+            sys.print_exception(e)  # pyright: ignore [reportGeneralTypeIssues]
         finally:
-            if isinstance(result, (dict, list)):
+            if isinstance(
+                result,  # pyright: ignore [reportUnboundVariable]
+                (dict, list),
+            ):
                 body = json.dumps(result)
                 content_type = "application/json"
             else:
-                body = """<!DOCTYPE html>
+                body = f"""<!DOCTYPE html>
                 <html>
-                    <head><title>Pico Print</title></head>
+                    <head><title>Pico Print - {route}</title></head>
                     <body>
                         %s
                     </body>
                 </html>
                 """ % str(
-                    result
+                    result  # pyright: ignore [reportUnboundVariable]
                 )
                 content_type = "text/html"
 
             writer.write(
                 "HTTP/1.0 %s\r\nContent-type: %s\r\n\r\n"
-                % (response_code, content_type)
+                % (
+                    response_code,  # pyright: ignore [reportUnboundVariable]
+                    content_type,
+                )
             )
             writer.write(body)
             await writer.drain()

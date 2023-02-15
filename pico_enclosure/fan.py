@@ -1,6 +1,6 @@
 """Interface with a 4-Pin PWM Fan."""
 
-from machine import Pin, PWM
+from machine import Pin, PWM  # pyright: ignore [reportMissingImports]
 
 from .api import api
 
@@ -10,8 +10,8 @@ class Fan:
 
     Args:
         name: A unique identifier for the fan. Will be used as an API path
-        pin: The GPIO pin on to which the fan signal is conntect
-        freq: The requied PWM frequence of the fan
+        pin: The GPIO pin on to which the fan signal is connected
+        freq: The required PWM frequency of the fan
         idle: The default speed of the fan
         max_duty_cycle: The allowable maximum is 65535, tweak if fan does not turn off correctly.
 
@@ -29,6 +29,7 @@ class Fan:
         self._pwm_fan = PWM(Pin(pin))
         self._speed_value = idle
         self.max_duty_cycle = max_duty_cycle
+        self._pwm_fan.freq(freq)
 
         api.route(f"/{self.name}/on")(self.on)
         api.route(f"/{self.name}/off")(self.off)

@@ -1,15 +1,15 @@
 """The main execution loop."""
 
-from machine import Pin
+from machine import Pin  # pyright: ignore[reportMissingImports]
 
-import uasyncio as asyncio
+import uasyncio as asyncio  # pyright: ignore[reportMissingImports]
 
-from .network import Network
 from .devices import Devices
 from .api import api
 
 
 async def loop():
+    """The main execution loop."""
     devices = Devices()
 
     for action, action_func in devices.actions.items():

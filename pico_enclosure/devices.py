@@ -21,21 +21,29 @@
 """
 import json
 
-from micropython import const
+from micropython import const  # pyright: ignore
 
-from .air_quality import CCS811AirQualitySesnor
 from .fan import Fan
 from .led_strip import LEDStrip
 from .network import Network
+from .environment import CCS811, DHT11, DHT22, AM2302
 
 DEVICE_MAP = {
     const("Fan"): Fan,
     const("LEDStrip"): LEDStrip,
-    const("CCS811"): CCS811AirQualitySesnor,
+    const("CCS811"): CCS811,
+    const("DHT11"): DHT11,
+    const("DHT22"): DHT22,
+    const("AM2302"): AM2302,
 }
+
+DEFAULT_CONFIG_FILE: str = "devices.json"
+"""The path to the default configuration file."""
 
 
 def _curry(func, params):
+    """Bake a set of parameters to a asynchronous function call as a function."""
+
     async def _inner():
         return await func(**params)
 
@@ -43,6 +51,8 @@ def _curry(func, params):
 
 
 def _execute_functions(functions):
+    """Construct an asynchronous function to execute a list of asynchronous functions."""
+
     async def _inner():
         for function in functions:
             await function()
@@ -56,9 +66,13 @@ class Devices:
     Args:
         path: The path the configuration file
 
+    Attributes:
+        actions: A collection of user-defined steps of function calls
+        devices: The discovered devices
+
     """
 
-    def __init__(self, path="devices.json"):
+    def __init__(self, path: str = DEFAULT_CONFIG_FILE):
         with open(path, "r") as fp:
             device_json = json.load(fp)
 
