@@ -10,6 +10,7 @@ from micropython import const  # pyright: ignore[reportMissingImports]
 import uasyncio as asyncio  # pyright: ignore[reportMissingImports]
 
 from .api import api
+from .base import BaseDevice
 
 CCS811_HARDWARE_ADDRS = (
     0x5A,
@@ -49,7 +50,7 @@ int_from_big_bytes = lambda v: int.from_bytes(v, "big")
 """Convert a bytearray into an integer."""
 
 
-class CCS811:
+class CCS811(BaseDevice):
     """I2C Gas Sensor for measuring VOCs and eCO2.
 
     Args:
@@ -287,7 +288,7 @@ def _DHTXX_PIO_ASM():
     jmp("bit_loop")  #     15 - (7) Return to start of the bit loop
 
 
-class DHTXX:
+class DHTXX(BaseDevice):
     """Family of temperature and humidity sensors.
 
     Args:
@@ -318,8 +319,9 @@ class DHTXX:
         )
 
         self._data_pin = Pin(pin)
+        self._state_machine_id = state_machine_id
 
-        self._state_machine = StateMachine(state_machine_id)
+        self._state_machine = StateMachine(self._state_machine_id)
 
         self._temp = None
         self._humidity = None
@@ -328,7 +330,9 @@ class DHTXX:
         self._unit = unit
 
         # TODO manage using multiple state machines automatically
-        PIO(state_machine_id).remove_program()
+
+        api.route(f"/{self.name}/data")(self.data)
+        PIO(self._state_machine_id).remove_program()
 
         self._state_machine.init(
             _DHTXX_PIO_ASM,
@@ -337,8 +341,6 @@ class DHTXX:
             in_base=self._data_pin,
             jmp_pin=self._data_pin,
         )
-
-        api.route(f"/{self.name}/data")(self.data)
 
     async def data(self):
         """Use the sensor to take a measurement if one is available.
@@ -351,9 +353,8 @@ class DHTXX:
         """
         current_time = time()
         if current_time - self._last_measurement_time > self._rest_time:
-            self._state_machine.put(
-                self._initial_low_pulse_duration
-            )  # Wait for at least 2ms
+            print("Taking measurement")
+            self._state_machine.put(self._initial_low_pulse_duration)
             self._state_machine.active(1)
 
             bytes_ = [self._state_machine.get() for _ in range(5)]
@@ -389,10 +390,16 @@ class DHTXX:
             if self._unit == "fahrenheit":
                 self._temp = round(self._temp * 9 / 5 + 32, 1)
 
+            self._last_measurement_time = time()
+            self._state_machine.restart()
+
         return {
             "temperature": self._temp,
             "humidity": self._humidity,
         }
+
+    async def _loop(self):
+        await self.data()
 
 
 class DHT11(DHTXX):

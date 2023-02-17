@@ -8,6 +8,8 @@ WIFI_MODES = ("client", "ap")
 
 AP_NETWORK_DEFAULT_NAME = "pico-print"
 AP_NETWORK_DEFAULT_PASSWORD = "rocky-racoon"
+DEFAULT_PORT = 8080
+ALLOWABLE_HOSTS = "0.0.0.0"
 
 
 class Network:
@@ -17,10 +19,19 @@ class Network:
         ssid: The name of the network. If ``mode`` is `client`, then it will connect to this network. If ``mode`` is `ap`, this is the name of the created network
         password: The password for the network.
         mode: What mode the network should be put in. `client` if you are connecting to an existing network or `ap` if you are creating one
+        port: The port on which the API should run
+        hosts: Hosts allowed to access this service
 
     """
 
-    def __init__(self, ssid=None, password=None, mode=None):
+    def __init__(
+        self,
+        ssid=None,
+        password=None,
+        mode=None,
+        port=DEFAULT_PORT,
+        hosts=ALLOWABLE_HOSTS,
+    ):
         if not ssid:
             mode = WIFI_MODES[1]  # AP mode by default if no SSID given
         elif mode is None:
@@ -46,3 +57,6 @@ class Network:
         while self._network.active() == False:
             pass
             sleep(0.5)
+
+        self.port = port
+        self.hosts = ALLOWABLE_HOSTS

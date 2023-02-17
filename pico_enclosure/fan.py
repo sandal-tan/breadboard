@@ -3,13 +3,15 @@
 from machine import Pin, PWM  # pyright: ignore [reportMissingImports]
 
 from .api import api
+from .base import BaseDevice
 
 
-class Fan:
+class Fan(BaseDevice):
     """A 4-Pin PWM Fan.
 
     Args:
         name: A unique identifier for the fan. Will be used as an API path
+        logger: A logger for the device to use
         pin: The GPIO pin on to which the fan signal is connected
         freq: The required PWM frequency of the fan
         idle: The default speed of the fan
@@ -20,12 +22,13 @@ class Fan:
     def __init__(
         self,
         name: str,
+        logger,
         pin: int,
         freq: int = 25000,
         idle: int = 25,
         max_duty_cycle: int = 65530,
     ):
-        self.name = name
+        super().__init__(name, logger)
         self._pwm_fan = PWM(Pin(pin))
         self._speed_value = idle
         self.max_duty_cycle = max_duty_cycle
@@ -58,6 +61,7 @@ class Fan:
         return True
 
     def _set(self, value: int):
+        self.logger.info("Set fan speed to %d", value)
         value = round((100 - value) / 100 * self.max_duty_cycle)
 
         self._pwm_fan.duty_u16(value)

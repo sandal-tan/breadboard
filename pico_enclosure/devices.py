@@ -7,7 +7,7 @@
         "pin": 17
     },
     "lights": {
-        "device": "LEDStrip",
+        "device": "NeoPixelStrip",
         "pin":  27,
         "led_count": 12
     },
@@ -22,15 +22,17 @@
 import json
 
 from micropython import const  # pyright: ignore
+import uasyncio as asyncio
 
 from .fan import Fan
-from .led_strip import LEDStrip
+from .led_strip import NeoPixelStrip, _OnboardLED
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
+from .api import api
 
 DEVICE_MAP = {
     const("Fan"): Fan,
-    const("LEDStrip"): LEDStrip,
+    const("NeoPixelStrip"): NeoPixelStrip,
     const("CCS811"): CCS811,
     const("DHT11"): DHT11,
     const("DHT22"): DHT22,
@@ -67,7 +69,6 @@ class Devices:
         path: The path the configuration file
 
     Attributes:
-        actions: A collection of user-defined steps of function calls
         devices: The discovered devices
 
     """
@@ -77,7 +78,6 @@ class Devices:
             device_json = json.load(fp)
 
         self._network = Network(**device_json.get("network") or {})
-        self.actions = {}
 
         self.devices = {
             name: DEVICE_MAP[entry["device"]](
@@ -89,7 +89,7 @@ class Devices:
                     not in [
                         "device",
                     ]
-                }
+                },
             )
             for name, entry in device_json.items()
             if name not in ["network", "actions"]
@@ -105,7 +105,23 @@ class Devices:
                 )
                 compiled_steps.append(_curry(action_func, step))
 
-            self.actions[action_name] = _execute_functions(compiled_steps)
+            api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
 
     def __getitem__(self, key):
         return self.devices[key]
+
+    async def loop(self):
+        """The main execution loop."""
+
+        asyncio.create_task(
+            asyncio.start_server(
+                api.route_requests,
+                self._network.hosts,
+                self._network.port,
+            )
+        )
+
+        while True:
+            for name, device in self.devices.items():
+                asyncio.run(device._loop())
+            await asyncio.sleep(5)
