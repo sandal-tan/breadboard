@@ -59,7 +59,6 @@ class CCS811(BaseDevice):
         sda: The SDA pin to which the sensor is connected
         scl: The SCL pin to which the sensor is connected
         mode: The starting mode of operation
-        interrupt_pin: The GPIO Pin to which the interrupt Pin is connected
 
     """
 
@@ -69,11 +68,10 @@ class CCS811(BaseDevice):
         sda: int,
         scl: int,
         mode: int = 1,
-        interrupt_pin=None,
+        compensation_device=None,
     ):
         self.name = name
         self._default_mode = mode
-        self.interrupt_pin = interrupt_pin
         self.i2c_bus = SoftI2C(
             sda=Pin(sda),
             scl=Pin(scl),
@@ -111,10 +109,41 @@ class CCS811(BaseDevice):
             self._start()
             asyncio.run(self.mode(self._default_mode))
 
+        if compensation_device is not None:
+            device = compensation_device.pop("device")
+            if not device:
+                raise Exception("Expected `device` key")
+            self.compensation_device = CCS811_COMPENSATION_DEVICES[device](
+                **compensation_device, name=self.name + "_temp", loop=False
+            )
+        else:
+            self.compensation_device = None
+
         api.route(f"/{self.name}/mode")(self.mode)
         api.route(f"/{self.name}/status")(self.status)
         api.route(f"/{self.name}/data")(self.data)
         api.route(f"/{self.name}/error")(self.error)
+
+    async def _loop(self):
+        while True:
+            if self.compensation_device:
+                # Use an external temperature and humidity device for reading compensation
+                await self.compensation_device.data()
+                self.i2c_bus.writeto_mem(
+                    self.device_addr,
+                    CCS811_ENV_REG[0],
+                    (
+                        round(self.compensation_device._humidity * 512) << 16
+                        | round((self.compensation_device._temp + 25) * 512)
+                    ).to_bytes(
+                        4,
+                        "big",
+                    ),
+                )
+                await asyncio.sleep_ms(CCS811_DELAY)
+                await asyncio.sleep(self.compensation_device._rest_time)
+            else:
+                await asyncio.sleep(10)
 
     def _start(self):
         # https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=24&zoom=100,96,177
@@ -219,6 +248,10 @@ class CCS811(BaseDevice):
             "TVOC": int_from_big_bytes(data[2:4]),
         }
 
+        if self.compensation_device:
+            data = await self.compensation_device.data()
+            res.update(data)
+
         if status or status == "true":
             res.update(self._parse_status(data[4]))
 
@@ -309,6 +342,7 @@ class DHTXX(BaseDevice):
         initial_low_pulse_duration: How long to pull low for initially. This value is sensor-model dependent
         state_machine_id: An Id of the state machine to use
         unit: The unit of temperature to return. Supports 'celsius' and 'fahrenheit'.
+        loop: Whether or not to maintain own device loop
 
     """
 
@@ -320,6 +354,7 @@ class DHTXX(BaseDevice):
         initial_low_pulse_duration: int,
         state_machine_id: int = 0,
         unit: str = "celsius",
+        loop: bool = True,
     ) -> None:
         self.name = name
         self._rest_time = rest_time
@@ -339,6 +374,7 @@ class DHTXX(BaseDevice):
 
         self._last_measurement_time = 0
         self._unit = unit
+        self.loop = loop
 
         # TODO manage using multiple state machines automatically
 
@@ -402,21 +438,21 @@ class DHTXX(BaseDevice):
                 (1 if not raw_temp >> 15 else -1) * (raw_temp & (2**15 - 1)) / 10
             )
 
-            if self._unit == "fahrenheit":
-                self._temp = round(self._temp * 9 / 5 + 32, 1)
-
             self._last_measurement_time = time()
             self._state_machine.restart()
 
         return {
-            "temperature": self._temp,
+            "temperature": self._temp
+            if self._unit == "celsius"
+            else round(self._temp * 9 / 5 + 32, 1),
             "humidity": self._humidity,
         }
 
     async def _loop(self):
-        while True:
-            await self.data()
-            await asyncio.sleep(self._rest_time)
+        if self.loop:
+            while True:
+                await self.data()
+                await asyncio.sleep(self._rest_time)
 
 
 class DHT11(DHTXX):
@@ -431,13 +467,13 @@ class DHT11(DHTXX):
 
     """
 
-    def __init__(self, name, pin, unit):
+    def __init__(self, name, pin, **kwargs):
         super().__init__(
             name,
             pin,
             rest_time=1,  # 1Hz sampling
             initial_low_pulse_duration=20,  # 20ms initial low pulse
-            unit=unit,
+            **kwargs,
         )
 
 
@@ -454,11 +490,18 @@ class DHT22(DHTXX):
 
     """
 
-    def __init__(self, name, pin, unit):
+    def __init__(self, name, pin, **kwargs):
         super().__init__(
             name,
             pin,
             rest_time=2,
             initial_low_pulse_duration=2,
-            unit=unit,
+            **kwargs,
         )
+
+
+CCS811_COMPENSATION_DEVICES = {
+    const("DHT11"): DHT11.try_to_instantiate(),
+    const("DHT22"): DHT22.try_to_instantiate(),
+    const("AM2302"): DHT22.try_to_instantiate(),
+}

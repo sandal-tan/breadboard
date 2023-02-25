@@ -32,24 +32,13 @@ from .api import api
 from .logging import logger
 
 
-def try_to_instantiate(class_):
-    def _init(*args, **kwargs):
-        try:
-            return class_(*args, **kwargs)
-        except Exception as e:
-            logger.error("Failed to instantiate class: %s", class_.__name__)
-            logger.error(str(e))
-
-    return _init
-
-
 DEVICE_MAP = {
-    const("Fan"): try_to_instantiate(Fan),
-    const("NeoPixelStrip"): try_to_instantiate(NeoPixelStrip),
-    const("CCS811"): try_to_instantiate(CCS811),
-    const("DHT11"): try_to_instantiate(DHT11),
-    const("DHT22"): try_to_instantiate(DHT22),
-    const("AM2302"): try_to_instantiate(DHT22),
+    const("Fan"): Fan.try_to_instantiate(),
+    const("NeoPixelStrip"): NeoPixelStrip.try_to_instantiate(),
+    const("CCS811"): CCS811.try_to_instantiate(),
+    const("DHT11"): DHT11.try_to_instantiate(),
+    const("DHT22"): DHT22.try_to_instantiate(),
+    const("AM2302"): DHT22.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"
@@ -105,7 +94,7 @@ class Devices:
                 },
             )
             for name, entry in device_json.items()
-            if name not in ["network", "actions"]
+            if name not in ["network", "actions", "context"]
         }
 
         self.devices = {k: v for k, v in self.devices.items() if v}

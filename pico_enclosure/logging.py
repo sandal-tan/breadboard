@@ -26,6 +26,13 @@ def _curry(func, **params):
     return __inner
 
 
+def _exception_to_str(e):
+    """Convert en exception into a string message."""
+    exception_message = StringIO()
+    sys.print_exception(e, exception_message)
+    return exception_message.getvalue()
+
+
 def format_time_tuple(t):
     year, month, day, hour, minute, second = (
         str(v) if v > 2000 else str(v) if v >= 10 else f"0{v}" for v in t[:6]
@@ -66,7 +73,11 @@ class Logger:
         self._level = value
 
     def _print_log(self, message, *params, requested_level, **kwargs):
-        message = message % params + "\n"
+        if isinstance(message, Exception):
+            message = _exception_to_str(message) + "\n"
+        else:
+            message = message % params + "\n"
+
         if kwargs:
             custom_entries = "".join(f"[{v}]" for _, v in kwargs.items())
         else:

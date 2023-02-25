@@ -1,9 +1,7 @@
 """Web API Interface."""
-from io import StringIO
-import sys
 import json
 
-from .logging import logger
+from .logging import logger, _exception_to_str
 
 HTML_BASE = """<!DOCTYPE html>
 <html>
@@ -96,9 +94,7 @@ class API:
         except Exception as e:
             response_code = HTTP_STATUS_CODES._500
             log_method = self.logger.error
-            exception_message = StringIO()
-            sys.print_exception(e, exception_message)
-            log_message = exception_message.getvalue()
+            log_message = _exception_to_str(e)
         finally:
             if result is None:
                 result = "<h1>%s - %s</h1>%s%s" % (

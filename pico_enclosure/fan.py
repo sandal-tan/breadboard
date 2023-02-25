@@ -48,7 +48,6 @@ class Fan(BaseDevice):
 
         """
         self._set(self._speed_value)
-        return self._speed_value
 
     async def off(self):
         """Turn off the fan.
@@ -58,7 +57,6 @@ class Fan(BaseDevice):
 
         """
         self._set(0)
-        return True
 
     def _set(self, value: int):
         logger.debug("Set fan speed to %d", value)
@@ -78,4 +76,3 @@ class Fan(BaseDevice):
         """
         self._speed_value = int(value)
         self._set(self._speed_value)
-        return value
