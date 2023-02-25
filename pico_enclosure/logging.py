@@ -1,6 +1,7 @@
 """Logging"""
 
 import time
+import sys
 
 from io import StringIO
 
@@ -13,7 +14,9 @@ LOGGING_LEVELS = {
 
 REV_LOGGING_LEVELS = {v: k for k, v in LOGGING_LEVELS.items()}
 
-LOG_MSG_TEMPLATE = "[%(level)s - %(time)s] %(message)s"
+LOG_MSG_TEMPLATE = "[%(time)s][%(level)s]%(custom_entries)s %(message)s"  # TODO how to include message source? __file__?
+
+HTML_LOG_MSG_TEMPLATE = "<tr><td><b>[%(time)s][%(level)s]%(custom_entries)s</b></td><td> %(message)s</td></tr>"  # TODO how to include message source? __file__?
 
 
 def _curry(func, **params):
@@ -21,6 +24,13 @@ def _curry(func, **params):
         return func(*args, **kwargs, **params)
 
     return __inner
+
+
+def format_time_tuple(t):
+    year, month, day, hour, minute, second = (
+        str(v) if v > 2000 else str(v) if v >= 10 else f"0{v}" for v in t[:6]
+    )
+    return f"{year}-{month}-{day} {hour}:{minute}:{second}"
 
 
 class Logger:
@@ -55,20 +65,28 @@ class Logger:
             raise Exception(f"Unknown logging level: {value}")
         self._level = value
 
-    def _print_log(self, message, *params, requested_level):
-        message = message % params
+    def _print_log(self, message, *params, requested_level, **kwargs):
+        message = message % params + "\n"
+        if kwargs:
+            custom_entries = "".join(f"[{v}]" for _, v in kwargs.items())
+        else:
+            custom_entries = ""
+
         if requested_level >= self._level:
-            message = LOG_MSG_TEMPLATE % {
-                "time": time.time(),
-                "level": requested_level,
-                "message": message,
-            }
+            for requested, dest, template in [
+                (self.serial_log, sys.stdout, LOG_MSG_TEMPLATE),
+                (self.file_log, self.log_buffer, HTML_LOG_MSG_TEMPLATE),
+            ]:
+                if requested:
+                    dest.write(
+                        template
+                        % {
+                            "time": format_time_tuple(time.localtime(time.time())),
+                            "level": REV_LOGGING_LEVELS[requested_level],
+                            "message": message,
+                            "custom_entries": custom_entries,
+                        }
+                    )
 
-            if self.serial_log:
-                print(message)
 
-            if self.file_log:
-                self.log_buffer.write(message + "\n")
-
-    def exception(self, e):
-        self.error(e)  # TODO get nice text or stacktrace of exception
+logger = Logger()

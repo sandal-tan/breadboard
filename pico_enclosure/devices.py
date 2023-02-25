@@ -29,14 +29,27 @@ from .led_strip import NeoPixelStrip, _OnboardLED
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
+from .logging import logger
+
+
+def try_to_instantiate(class_):
+    def _init(*args, **kwargs):
+        try:
+            return class_(*args, **kwargs)
+        except Exception as e:
+            logger.error("Failed to instantiate class: %s", class_.__name__)
+            logger.error(str(e))
+
+    return _init
+
 
 DEVICE_MAP = {
-    const("Fan"): Fan,
-    const("NeoPixelStrip"): NeoPixelStrip,
-    const("CCS811"): CCS811,
-    const("DHT11"): DHT11,
-    const("DHT22"): DHT22,
-    const("AM2302"): DHT22,
+    const("Fan"): try_to_instantiate(Fan),
+    const("NeoPixelStrip"): try_to_instantiate(NeoPixelStrip),
+    const("CCS811"): try_to_instantiate(CCS811),
+    const("DHT11"): try_to_instantiate(DHT11),
+    const("DHT22"): try_to_instantiate(DHT22),
+    const("AM2302"): try_to_instantiate(DHT22),
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"
@@ -95,17 +108,30 @@ class Devices:
             if name not in ["network", "actions"]
         }
 
+        self.devices = {k: v for k, v in self.devices.items() if v}
+        self.devices["_OnboardLED"] = _OnboardLED()
+
         for action_name, steps in device_json["actions"].items():
             compiled_steps = []
 
             for step in steps:
-                action_func = getattr(
-                    self.devices[step.pop("device")],
-                    step.pop("action"),
-                )
-                compiled_steps.append(_curry(action_func, step))
-
-            api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
+                try:
+                    action_func = getattr(
+                        self.devices[step.pop("device")],
+                        step.pop("action"),
+                    )
+                    compiled_steps.append(_curry(action_func, step))
+                except KeyError as e:
+                    logger.error(
+                        "Failed to find device %s for action %s", str(e), action_name
+                    )
+                    break
+                except Exception as e:
+                    logger.error("Failed to load action: %s", action_name)
+                    logger.error(str(e))
+                    break
+            else:
+                api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
 
     def __getitem__(self, key):
         return self.devices[key]
@@ -121,7 +147,8 @@ class Devices:
             )
         )
 
+        for device in self.devices.values():
+            asyncio.create_task(device._loop())
+
         while True:
-            for name, device in self.devices.items():
-                asyncio.run(device._loop())
             await asyncio.sleep(5)

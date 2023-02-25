@@ -7,6 +7,7 @@ from neopixel import NeoPixel  # pyright: ignore [reportMissingImports]
 
 from .api import api
 from .base import BaseDevice
+from .logging import logger
 
 DELAY = 500
 
@@ -49,7 +50,7 @@ class NeoPixelStrip(BaseDevice):
             brightness: A relative brightness scaling across all channels (0-100)
 
         """
-        brightness = round(int(brightness) / 100)
+        brightness = int(brightness) / 100
         color_tuple = (
             round(int(red) * brightness),
             round(int(green) * brightness),
@@ -62,21 +63,18 @@ class NeoPixelStrip(BaseDevice):
             self._state[idx] = color_tuple  # pyright: ignore [reportGeneralTypeIssues]
         self._np.write()
         await asyncio.sleep_ms(DELAY)
-        return True
 
     async def on(self):
         """Turn the LED strip on, restoring it to the previously set values."""
         for led, colors in self._state.items():
             self._np[led] = colors
         self._np.write()
-        return True
 
     async def off(self):
         """Turn off the LED strip."""
         for idx in range(len(self)):
             self._np[idx] = (0, 0, 0)
         self._np.write()
-        return True
 
     def __len__(self):
         return self._length
@@ -87,32 +85,10 @@ class _OnboardLED(BaseDevice):
 
     def __init__(self):
         self._led = Pin("LED", Pin.OUT)
-        self._last_blink_time = 0
-
-    async def blink(self, *pulses, blinks: int, time_between: int):
-        """Blink the onboard LED at a given frequency.
-
-        Args:
-            pulses: A collection of on-off timings representing the blink
-            blink: The number of time to flash defined by ``pulses``
-            time_between: How long before the LED can be blinked again
-
-        """
-        current = time()
-        if current - self._last_blink_time > time_between:
-            self._last_blink_time = current
-            for _ in range(blinks):
-                for on_time, off_time in pulses:
-                    self._led.value(1)
-                    sleep_ms(on_time)
-                    self._led.value(0)
-                    sleep_ms(off_time)
 
     async def _loop(self):
-        await self.blink(
-            (100, 50),
-            (100, 50),
-            (100, 50),
-            blinks=3,
-            time_between=10,
-        )
+        while True:
+            self._led.value(1)
+            await asyncio.sleep(1)
+            self._led.value(0)
+            await asyncio.sleep(1)

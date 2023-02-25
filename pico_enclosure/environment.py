@@ -11,6 +11,7 @@ import uasyncio as asyncio  # pyright: ignore[reportMissingImports]
 
 from .api import api
 from .base import BaseDevice
+from .logging import logger
 
 CCS811_HARDWARE_ADDRS = (
     0x5A,
@@ -82,7 +83,12 @@ class CCS811(BaseDevice):
         for device in self.i2c_bus.scan():
             if device in CCS811_HARDWARE_ADDRS:
                 self.device_addr = device
-                print(f"Found device at {hex(device)}")
+                logger.debug(
+                    "Found device at %s",
+                    hex(device),
+                    cls=self.__class__.__name__,
+                    name=self.name,
+                )
             break
         else:
             raise Exception("No CCS811 devices could be found")
@@ -96,7 +102,12 @@ class CCS811(BaseDevice):
 
         status = asyncio.run(self.status())
         if not status["error"] and status["app_valid"]:
-            print(f"Device at {hex(self.device_addr)} ready.")
+            logger.debug(
+                "Device at %s ready.",
+                hex(self.device_addr),
+                cls=self.__class__.__name__,
+                name=self.name,
+            )
             self._start()
             asyncio.run(self.mode(self._default_mode))
 
@@ -353,7 +364,11 @@ class DHTXX(BaseDevice):
         """
         current_time = time()
         if current_time - self._last_measurement_time > self._rest_time:
-            print("Taking measurement")
+            logger.debug(
+                "Taking Measurement",
+                cls=self.__class__.__name__,
+                name=self.name,
+            )
             self._state_machine.put(self._initial_low_pulse_duration)
             self._state_machine.active(1)
 
@@ -399,7 +414,9 @@ class DHTXX(BaseDevice):
         }
 
     async def _loop(self):
-        await self.data()
+        while True:
+            await self.data()
+            await asyncio.sleep(self._rest_time)
 
 
 class DHT11(DHTXX):

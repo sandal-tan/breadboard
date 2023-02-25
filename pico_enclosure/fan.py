@@ -4,6 +4,7 @@ from machine import Pin, PWM  # pyright: ignore [reportMissingImports]
 
 from .api import api
 from .base import BaseDevice
+from .logging import logger
 
 
 class Fan(BaseDevice):
@@ -22,13 +23,12 @@ class Fan(BaseDevice):
     def __init__(
         self,
         name: str,
-        logger,
         pin: int,
         freq: int = 25000,
         idle: int = 25,
         max_duty_cycle: int = 65530,
     ):
-        super().__init__(name, logger)
+        super().__init__(name, None)
         self._pwm_fan = PWM(Pin(pin))
         self._speed_value = idle
         self.max_duty_cycle = max_duty_cycle
@@ -61,7 +61,7 @@ class Fan(BaseDevice):
         return True
 
     def _set(self, value: int):
-        self.logger.info("Set fan speed to %d", value)
+        logger.debug("Set fan speed to %d", value)
         value = round((100 - value) / 100 * self.max_duty_cycle)
 
         self._pwm_fan.duty_u16(value)
