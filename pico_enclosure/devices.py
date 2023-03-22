@@ -23,9 +23,10 @@ import json
 
 from micropython import const  # pyright: ignore
 import uasyncio as asyncio
+import gc
 
 from .fan import Fan
-from .led_strip import NeoPixelStrip, _OnboardLED
+from .led import NeoPixel, _OnboardLED, RGBNeoPixel
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
@@ -34,7 +35,8 @@ from .logging import logger
 
 DEVICE_MAP = {
     const("Fan"): Fan.try_to_instantiate(),
-    const("NeoPixelStrip"): NeoPixelStrip.try_to_instantiate(),
+    const("NeoPixel"): NeoPixel.try_to_instantiate(),
+    const("RGBNeoPixel"): RGBNeoPixel.try_to_instantiate(),
     const("CCS811"): CCS811.try_to_instantiate(),
     const("DHT11"): DHT11.try_to_instantiate(),
     const("DHT22"): DHT22.try_to_instantiate(),
@@ -121,6 +123,10 @@ class Devices:
                     break
             else:
                 api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
+
+        gc.collect()
+        api.doc  # Generate the documenation
+        gc.collect()
 
     def __getitem__(self, key):
         return self.devices[key]

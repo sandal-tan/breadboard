@@ -14,9 +14,10 @@ LOGGING_LEVELS = {
 
 REV_LOGGING_LEVELS = {v: k for k, v in LOGGING_LEVELS.items()}
 
-LOG_MSG_TEMPLATE = "[%(time)s][%(level)s]%(custom_entries)s %(message)s"  # TODO how to include message source? __file__?
+LOG_MSG_TEMPLATE = '{"timestamp": "%(time)s", "level": "%(level)s"%(custom_entries)s, "message": "%(message)s"}'  # TODO how to include message source? __file__?
 
-HTML_LOG_MSG_TEMPLATE = "<tr><td><b>[%(time)s][%(level)s]%(custom_entries)s</b></td><td> %(message)s</td></tr>"  # TODO how to include message source? __file__?
+# TODO: make alert class dynamic
+HTML_LOG_MSG_TEMPLATE = '<div class="row"><div class="col"><div class="alert alert-primary text-wrap" role="alert"><pre><code>' + LOG_MSG_TEMPLATE + '</code></pre></div></div></div>'  # TODO how to include message source? __file__?
 
 
 def _curry(func, **params):
@@ -74,12 +75,12 @@ class Logger:
 
     def _print_log(self, message, *params, requested_level, **kwargs):
         if isinstance(message, Exception):
-            message = _exception_to_str(message) + "\n"
+            message = _exception_to_str(message)
         else:
-            message = message % params + "\n"
+            message = message % params
 
         if kwargs:
-            custom_entries = "".join(f"[{v}]" for _, v in kwargs.items())
+            custom_entries = "".join(f', "{k}": "{str(v).replace('"', '\\"')}"' for k, v in kwargs.items())
         else:
             custom_entries = ""
 
@@ -93,10 +94,10 @@ class Logger:
                         template
                         % {
                             "time": format_time_tuple(time.localtime(time.time())),
-                            "level": REV_LOGGING_LEVELS[requested_level],
-                            "message": message,
+                            "level": REV_LOGGING_LEVELS[requested_level].lower(),
+                            "message": message.replace("\n", " "),
                             "custom_entries": custom_entries,
-                        }
+                        } + "\n"
                     )
 
 

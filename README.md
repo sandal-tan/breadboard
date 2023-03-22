@@ -21,8 +21,7 @@ Devices are configured with a `devices.json` file that is installed onto the Pic
     "device": "NeoPixelStrip",
     "pin": 27,
     "led_count": 170
-  },
-  ...
+  }
 }
 ```
 
@@ -34,13 +33,12 @@ If using a Pico W or Pico WH, you can configure the network via a network entry 
 
 ```json
 {
-    "exhaust_fan": {...},
-    "lights": {...},
-    "network": {
-        "ssid": "<your_ssid>",
-        "password": "<your_password>"
-    }
-
+  "exhaust_fan": {},
+  "lights": {},
+  "network": {
+    "ssid": "<your_ssid>",
+    "password": "<your_password>"
+  }
 }
 ```
 
@@ -62,27 +60,26 @@ Device endpoints can be grouped as a set of ordered-steps called actions:
 
 ```json
 {
-    "exhaust_fan": {...},
-    "lights": {...},
-    "actions": {
-        "start_print": [
-            {
-                "device": "lights",
-                "action": "set",
-                "red": 255,
-                "green": 255,
-                "blue": 100,
-                "brightness": 75
-            },
-            {
-                "device": "exhaust_fan",
-                "action": "set",
-                "value": 50
-            }
-        ]
-    }
+  "exhaust_fan": {},
+  "lights": {},
+  "actions": {
+    "start_print": [
+      {
+        "device": "lights",
+        "action": "set",
+        "red": 255,
+        "green": 255,
+        "blue": 100,
+        "brightness": 75
+      },
+      {
+        "device": "exhaust_fan",
+        "action": "set",
+        "value": 50
+      }
+    ]
+  }
 }
-
 ```
 
 Actions are also made available via API:

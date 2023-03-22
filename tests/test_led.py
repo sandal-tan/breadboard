@@ -8,7 +8,7 @@ led = Pin("LED", Pin.IN)
 led.value(1)
 try:
     devices = Devices()
-    strip = devices["lights"]
+    strip = devices["enclosure_lights"]
 
     for var in [
         (255, 0, 0),  # red

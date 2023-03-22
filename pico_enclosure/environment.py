@@ -44,8 +44,6 @@ CCS811_APP_START_REG = (const(0xF4), None)
 CCS811_SW_RST_REG = (const(0xFF), const(4))
 """Software reset pin, puts the sensor into idle."""
 
-DHTXX_EXPECTED_BITS = 40  # 2 bytes each temperature and humidity, 1 byte checksum
-
 
 int_from_big_bytes = lambda v: int.from_bytes(v, "big")
 """Convert a bytearray into an integer."""
@@ -59,6 +57,8 @@ class CCS811(BaseDevice):
         sda: The SDA pin to which the sensor is connected
         scl: The SCL pin to which the sensor is connected
         mode: The starting mode of operation
+        compensation_device: A device that provides temperature and humidity readings for the sensor to compensate with
+        show_debug_endpoints: Whether or not to include debug endpoints for this device
 
     """
 
@@ -69,6 +69,7 @@ class CCS811(BaseDevice):
         scl: int,
         mode: int = 1,
         compensation_device=None,
+        show_debug_endpoints: bool = False,
     ):
         self.name = name
         self._default_mode = mode
@@ -119,10 +120,11 @@ class CCS811(BaseDevice):
         else:
             self.compensation_device = None
 
-        api.route(f"/{self.name}/mode")(self.mode)
-        api.route(f"/{self.name}/status")(self.status)
         api.route(f"/{self.name}/data")(self.data)
-        api.route(f"/{self.name}/error")(self.error)
+        if show_debug_endpoints:
+            api.route(f"/{self.name}/mode")(self.mode)
+            api.route(f"/{self.name}/status")(self.status)
+            api.route(f"/{self.name}/error")(self.error)
 
     async def _loop(self):
         while True:
@@ -291,6 +293,7 @@ class CCS811(BaseDevice):
         return self._parse_error(data)
 
 
+DHTXX_EXPECTED_BITS = 40  # 2 bytes each temperature and humidity, 1 byte checksum
 _DHTXX_SM_CLOCK_FREQ = 500000  # 1 / 500Khz = 2us cycle
 
 
@@ -326,7 +329,7 @@ def _DHTXX_PIO_ASM():
     wait(1, pin, 0)  #      9 - (4) Wait for base pin to go high
     wait(0, pin, 0)  #     10 - (5) Wait for base pin to go low
     label("bit_loop")  #   11 - (7)
-    wait(1, pin, 0)[17]  # 12 - (6) Wait for base pin go high, delay 18 cycles (36us)
+    wait(1, pin, 0)[17]  # 12 - (6) Wait for base pin go high, delay 17 cycles (34us)
     in_(pins, 1)  #        13 - (6) Write current pin state to ISR
     wait(0, pin, 0)  #     14 - (6) Wait for pin to go low
     jmp("bit_loop")  #     15 - (7) Return to start of the bit loop
