@@ -126,7 +126,7 @@ class Devices:
 
         gc.collect()
         api.doc  # Generate the documenation
-        gc.collect()
+        api.favicon
 
     def __getitem__(self, key):
         return self.devices[key]

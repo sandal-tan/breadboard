@@ -13,3 +13,4 @@ repl: deploy
 deploy:
 	ampy put ./pico_enclosure
 	ampy put ./devices.json devices.json
+	ampy put favicon.ico
