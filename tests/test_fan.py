@@ -2,7 +2,7 @@ from time import sleep
 import uasyncio as asyncio
 
 from machine import Pin
-from pico_enclosure.devices import Devices
+from breadboard.devices import Devices
 
 led = Pin("LED", Pin.IN)
 led.value(1)

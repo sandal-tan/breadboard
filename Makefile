@@ -11,6 +11,6 @@ repl: deploy
 	rshell repl
 
 deploy:
-	ampy put ./pico_enclosure
+	ampy put ./breadboard
 	ampy put ./devices.json devices.json
 	ampy put favicon.ico

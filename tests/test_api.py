@@ -2,7 +2,7 @@ from time import sleep
 
 from machine import Pin
 
-from pico_enclosure.network import Network
+from breadboard.network import Network
 
 led = Pin("LED", Pin.IN)
 led.value(1)

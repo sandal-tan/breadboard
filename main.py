@@ -1,7 +1,7 @@
 import uasyncio as asyncio
 import gc
 
-from pico_enclosure.devices import Devices
+from breadboard.devices import Devices
 
 gc.enable()
 devices = Devices()
