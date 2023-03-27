@@ -50,7 +50,7 @@ int_from_big_bytes = lambda v: int.from_bytes(v, "big")
 
 
 class CCS811(BaseDevice):
-    """I2C Gas Sensor for measuring VOCs and eCO2.
+    __doc__ = """CCS811 - Measure VOCs and eCO2.
 
     Args:
         name: A unique name for the sensor
@@ -99,6 +99,13 @@ class CCS811(BaseDevice):
         )
         sleep_ms(CCS811_DELAY)
 
+        super().__init__(self.name, api)
+        self.group.route("")(self.data)
+        if show_debug_endpoints:
+            self.group.route("/mode")(self.mode)
+            self.group.route("/status")(self.status)
+            self.group.route("/error")(self.error)
+
         status = asyncio.run(self.status())
         if not status["error"] and status["app_valid"]:
             logger.debug(
@@ -119,12 +126,6 @@ class CCS811(BaseDevice):
             )
         else:
             self.compensation_device = None
-
-        api.route(f"/{self.name}/data")(self.data)
-        if show_debug_endpoints:
-            api.route(f"/{self.name}/mode")(self.mode)
-            api.route(f"/{self.name}/status")(self.status)
-            api.route(f"/{self.name}/error")(self.error)
 
     async def _loop(self):
         while True:
@@ -156,7 +157,7 @@ class CCS811(BaseDevice):
         )
         sleep_ms(CCS811_DELAY)
 
-    async def mode(self, mode=None):
+    @api.doc(
         """Set the chip mode.
 
         Args:
@@ -172,6 +173,8 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=16&zoom=100,96,177
 
         """
+    )
+    async def mode(self, mode=None):
         if mode is not None:
             mode = int(mode)
             if mode == 4:
@@ -207,7 +210,7 @@ class CCS811(BaseDevice):
             "error": bool(status_byte & 1),
         }
 
-    async def status(self):
+    @api.doc(
         """Read the status of the CCS811.
 
         Returns:
@@ -217,6 +220,8 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=16&zoom=100,96,177
 
         """
+    )
+    async def status(self):
         status_byte = int_from_big_bytes(
             self.i2c_bus.readfrom_mem(
                 self.device_addr,
@@ -226,8 +231,8 @@ class CCS811(BaseDevice):
         asyncio.sleep_ms(CCS811_DELAY)
         return self._parse_status(status_byte)
 
-    async def data(self, status=False, error=False):
-        """Get the algorithm results from the sensor.
+    @api.doc(
+        """Read the data from the sensor
 
         Args:
             status: Include the status response byte with the data
@@ -240,6 +245,8 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=18&zoom=100,96,177
 
         """
+    )
+    async def data(self, status=False, error=False):
         data = self.i2c_bus.readfrom_mem(
             self.device_addr,
             *CCS811_ALG_REG,
@@ -274,7 +281,7 @@ class CCS811(BaseDevice):
             "HEATER_SUPPLY": bool(error_byte >> 5 & 1),
         }
 
-    async def error(self):
+    @api.doc(
         """Get the error state of the sensor.
 
         Returns:
@@ -284,6 +291,8 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=22&zoom=100,96,177
 
         """
+    )
+    async def error(self):
         data = int_from_big_bytes(
             self.i2c_bus.readfrom_mem(
                 self.device_addr,
@@ -379,9 +388,8 @@ class DHTXX(BaseDevice):
         self._unit = unit
         self.loop = loop
 
-        # TODO manage using multiple state machines automatically
-
-        api.route(f"/{self.name}/data")(self.data)
+        super().__init__(self.name, api)
+        self.group.route("")(self.data)
         PIO(self._state_machine_id).remove_program()
 
         self._state_machine.init(
@@ -392,15 +400,17 @@ class DHTXX(BaseDevice):
             jmp_pin=self._data_pin,
         )
 
+    @api.doc(
+        """Read data from the sensor
+
+    A new measurement will only be periodically.
+
+    Returns:
+        JSON containing the temperature and humidity readings.
+
+    """
+    )
     async def data(self):
-        """Use the sensor to take a measurement if one is available.
-
-        A new measurement will only be allowed every ``self._rest_time`` seconds.
-
-        Returns:
-            JSON containing the temperature and humidity readings.
-
-        """
         current_time = time()
         if current_time - self._last_measurement_time > self._rest_time:
             logger.debug(
@@ -459,7 +469,7 @@ class DHTXX(BaseDevice):
 
 
 class DHT11(DHTXX):
-    """A smaller, cheaper, higher sampling and less accurate temperature and humidity sensor.
+    __doc__ = """DHT11 - Measure temperature and humidity
 
     Args:
         name: A name for the DHT11 sensor
@@ -481,7 +491,7 @@ class DHT11(DHTXX):
 
 
 class DHT22(DHTXX):
-    """A larger, more expensive, slow sampling and more accurate temperature and humidity sensor.
+    __doc__ = """DHT22 - Measure temperature and humidity
 
     Args:
         name: A name for the DHT22/AM2302 sensor

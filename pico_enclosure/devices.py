@@ -62,6 +62,7 @@ def _execute_functions(functions):
     async def _inner():
         for function in functions:
             await function()
+        return {}
 
     return _inner
 
@@ -125,8 +126,8 @@ class Devices:
                 api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
 
         gc.collect()
-        api.doc  # Generate the documenation
-        api.favicon
+        api.documentation  # Generate the documentation
+        # api.favicon
 
     def __getitem__(self, key):
         return self.devices[key]

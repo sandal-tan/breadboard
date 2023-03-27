@@ -8,7 +8,7 @@ from .logging import logger
 
 
 class Fan(BaseDevice):
-    """A 4-Pin PWM Fan.
+    __doc__ = """A 4-Pin PWM Fan.
 
     Args:
         name: A unique identifier for the fan. Will be used as an API path
@@ -28,35 +28,27 @@ class Fan(BaseDevice):
         idle: int = 25,
         max_duty_cycle: int = 65530,
     ):
-        super().__init__(name, None)
+        super().__init__(name, api)
         self._pwm_fan = PWM(Pin(pin))
         self._speed_value = idle
         self.max_duty_cycle = max_duty_cycle
         self._pwm_fan.freq(freq)
 
-        api.route(f"/{self.name}/on")(self.on)
-        api.route(f"/{self.name}/off")(self.off)
-        api.route(f"/{self.name}/set")(self.set)
+        self.group.route("/on")(self.on)
+        self.group.route("/off")(self.off)
+        self.group.route("/set")(self.set)
 
         self._set(self._speed_value)
 
+    @api.doc("""Turn the fan on to the last set speed""")
     async def on(self):
-        """Turn the fan on.
-
-        Returns:
-            The speed value of the fan.
-
-        """
         self._set(self._speed_value)
+        return {}
 
+    @api.doc("""Turn off the fan""")
     async def off(self):
-        """Turn off the fan.
-
-        Returns:
-            True
-
-        """
         self._set(0)
+        return {}
 
     def _set(self, value: int):
         logger.debug("Set fan speed to %d", value)
@@ -64,8 +56,8 @@ class Fan(BaseDevice):
 
         self._pwm_fan.duty_u16(value)
 
-    async def set(self, value: int):
-        """Set the fan speed as a percentage.
+    @api.doc(
+        """Set the speed of the fan
 
         Args:
             value: The percentage (0-100) of speed that the fan should be set to
@@ -74,5 +66,8 @@ class Fan(BaseDevice):
             The set speed value
 
         """
+    )
+    async def set(self, value: int):
         self._speed_value = int(value)
         self._set(self._speed_value)
+        return {}

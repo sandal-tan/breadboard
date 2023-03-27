@@ -7,9 +7,11 @@ from .logging import logger
 class BaseDevice:
     """Base behavior of all attached devices."""
 
-    def __init__(self, name, logger):
+    __doc__ = None
+
+    def __init__(self, name, api):
         self.name = name
-        self.logger = logger
+        self.group = api.register(self.name, self)
 
     async def _loop(self):
         return

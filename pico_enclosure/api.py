@@ -1,10 +1,13 @@
 """Web API Interface."""
+from io import StringIO, BytesIO
 import json
 
 import gc
 
+from .base import BaseDevice
 from .logging import logger, _exception_to_str
-from io import StringIO, BytesIO
+
+ENDPOINT_DOC = {}
 
 CHUNK_SIZE = 250
 
@@ -75,14 +78,62 @@ ENDPOINT_ACCORDIAN_HTML = """
             </button>
         </div>
         <div class="accordion-collapse collapse mt-2" id="%(endpoint_name)sDoc" aria-labelledby="%(endpoint_name)sHeader"><div class="accordion-body">
-            %(endpoint_description)s
+            <p>%(long_description)s</p>
         </div>
         </div>
     </div>
 </div>
 """
 
-LOREM_IMPSUM = "Lorem ipsum dolor sit amet"
+
+class EndpointGroup:
+    """A collection of endpoints.
+
+    Allows for bound method documentation.
+
+    """
+
+    def __init__(self, name: str, container_class, api):
+        self.name = name
+        self.container_class = container_class
+        self.api = api
+        self.__doc__ = getattr(container_class, "__doc__", "")
+
+    def route(self, path: str, doc: bool = True, navbar: bool = False):
+        route = "".join(["/" + self.name, path])
+
+        def _wrap_func(endpoint):
+            if endpoint.__class__.__name__ == "bound_method":
+                desc = self.api._route_doc.get(
+                    getattr(self.container_class.__class__, endpoint.__name__), ""
+                )
+            else:
+                desc = ""
+
+            self.api._routes[route] = endpoint
+            if navbar:
+                self.api._navbar_items.append(route)
+
+            if doc and self.api._show_docs:
+                base_route = route.split("/")[1]
+                if base_route not in self.api._doc:
+                    self.api._doc[base_route] = []
+                self.api._doc[base_route].append((route, desc))
+            return endpoint
+
+        return _wrap_func
+
+    @property
+    def description(self):
+        if self.__doc__ is not None:
+            return self.__doc__.split("\n")[0]
+        return ""
+
+
+class HTTP_CONTENT_TYPE:
+    HTML = "text/html"
+    JSON = "application/json"
+    ICON = "image/vnd.microsoft.icon"
 
 
 def define_navbar(route, items):
@@ -98,6 +149,14 @@ def define_navbar(route, items):
 
 
 class _StatusCode:
+    """HTTP status codes encapsulation.
+
+    Args:
+        code: The code value
+        message: The associated message
+
+    """
+
     def __init__(self, code, message):
         self.code = code
         self.message = message
@@ -107,38 +166,76 @@ class _StatusCode:
 
 
 class HTTP_STATUS_CODES:
+    """Enumeration of HTTP status codes."""
+
     _200 = _StatusCode(200, "OK")
     _404 = _StatusCode(404, "PAGE NOT FOUND")
     _500 = _StatusCode(500, "INTERNAL SERVER ERROR")
 
 
+class ActionEndpoint(BaseDevice):
+    __doc__ = """Combine devices to perform complex actions."""
+
+    def __init__(self, api):
+        super().__init__("action", api)
+
+
 class API:
     """An async API service."""
 
-    def __init__(self, logger):
+    def __init__(self, logger, show_docs: bool = True):
         self.logger = logger
-        self._routes = {}
-        self._doc = {}
-        self._doc_io = None
-        self._navbar_items = []
-        self._favicon = None
 
-        self.route("/docs", navbar=True, doc=False)(self.docs)
+        self._routes = {}
+
+        # Contains the releveant documentation components
+        # Removed after documentation is generated
+        self._doc = {}
+
+        # An IO buffer for the documentation HTML
+        self._doc_io = None
+
+        self._navbar_items = []
+
+        self._favicon = None
+        self._show_docs = show_docs
+        self._route_doc = {}
+
+        self._endpoint_groups: dict[str, EndpointGroup] = {}
+
+        self._endpoint_groups["action"] = ActionEndpoint(self).group
+
         self.route("/favicon.ico", doc=False)(self.favicon_ico)
+
+        if self._show_docs:
+            self.route("/docs", navbar=True, doc=False)(self.docs)
+
         if self.logger.file_log:
             self.route("/logs", navbar=True, doc=False)(self.logs)
+
+    def doc(self, doc_str: str):
+        """Document an endpoint."""
+
+        def add_doc_to_func(func):
+            if self._show_docs:
+                self._route_doc[func] = doc_str
+            return func
+
+        return add_doc_to_func
 
     @property
     def favicon(self):
         if self._favicon is None:
             self._favicon = BytesIO()
             with open("favicon.ico", "rb") as fp:
-                self._favicon.write(fp.read())
+                while data := fp.read(CHUNK_SIZE):
+                    self._favicon.write(data)
+
         return self._favicon
 
     @property
-    def doc(self):
-        if self._doc_io is None:
+    def documentation(self):
+        if self._doc_io is None and self._show_docs:
             self._doc_io = StringIO()
             self._doc_io.write('<div class="container">')
             for base_route, endpoints in self._doc.items():
@@ -146,22 +243,38 @@ class API:
                     BASE_ROUTE_ACCORDIAN_HTML
                     % {
                         "base_route": base_route,
-                        "base_route_description": LOREM_IMPSUM,
+                        "base_route_description": self._endpoint_groups[
+                            base_route
+                        ].description,
                     }
                 )
-                for endpoint in endpoints:
+                for endpoint, description in endpoints:
+                    split = description.split("\n")
+                    if split:
+                        short_description = split[0]
+                        long_description = "\n".join(split[1:]).replace("\n", "<br>")
+                    else:
+                        short_description = description
+                        long_description = ""
                     self._doc_io.write(
                         ENDPOINT_ACCORDIAN_HTML
                         % {
                             "endpoint_name": endpoint.replace("/", "_"),
                             "endpoint": endpoint,
-                            "endpoint_description": LOREM_IMPSUM,
+                            "endpoint_description": short_description,
+                            "long_description": long_description,
                         }
                     )
                 self._doc_io.write(BASE_ROUTE_ACCORDIAN_HTML_CLOSING)
             self._doc_io.write("</div")
+            del self._doc
 
         return self._doc_io
+
+    def register(self, name, cls):
+        _group = EndpointGroup(name, cls, self)
+        self._endpoint_groups[name] = _group
+        return _group
 
     def route(self, route: str, doc: bool = True, navbar: bool = False):
         """Decorator to manage the attaching functions to routes.
@@ -173,17 +286,31 @@ class API:
 
         """
 
-        def _wrap_func(func):
-            self._routes[route] = func
-            if navbar:
-                self._navbar_items.append(route)
+        if self._show_docs:
 
-            if doc:
-                base_route = route.split("/")[1]
-                if base_route not in self._doc:
-                    self._doc[base_route] = []
-                self._doc[base_route].append(route)
-            return func
+            def _wrap_func(endpoint):
+                if endpoint.__class__ == "bound_method" and doc:
+                    raise RuntimeError(
+                        "Cannot create documentation for non-group endpoint belonging to class."
+                    )
+                else:
+                    desc = ""
+
+                self._routes[route] = endpoint
+                if navbar:
+                    self._navbar_items.append(route)
+
+                if doc and self._show_docs:
+                    base_route = route.split("/")[1]
+                    if base_route not in self._doc:
+                        self._doc[base_route] = []
+                    self._doc[base_route].append((route, desc))
+                return endpoint
+
+        else:
+
+            def _wrap_func(endpoint):
+                return endpoint
 
         return _wrap_func
 
@@ -237,16 +364,26 @@ class API:
                 source=":".join(str(v) for v in reader.get_extra_info("peername")),
             )
 
-            content_type = "text/html"
+            content_type = HTTP_CONTENT_TYPE.HTML
+
             if route == "/favicon.ico":
-                content_type = "image/vnd.microsoft.icon"
+                content_type = HTTP_CONTENT_TYPE.ICON
+
+            if isinstance(result, (dict, list)):
+                result = {
+                    "parameters": params or {},
+                    "response": result,
+                    "status": response_code.code,
+                }
+                content_type = HTTP_CONTENT_TYPE.JSON
+                result = StringIO(json.dumps(result))
 
             writer.write(
                 "HTTP/1.0 %s\r\nContent-type: %s\r\n\r\n"
                 % (response_code, content_type)
             )
 
-            if isinstance(result, StringIO):
+            if content_type == HTTP_CONTENT_TYPE.HTML:
                 writer.write(
                     HTML_BASE_PRE_BODY
                     % {
@@ -263,7 +400,7 @@ class API:
                 await writer.drain()
                 body_chunk = result.read(CHUNK_SIZE)
 
-            if isinstance(result, StringIO):
+            if content_type == HTTP_CONTENT_TYPE.HTML:
                 writer.write(HTML_BASE_POST_BODY)
                 await writer.drain()
             await writer.wait_closed()
@@ -278,10 +415,11 @@ class API:
 
     async def docs(self):
         """Autogenerated documentation for available endpoints."""
-        return self.doc
+        return self.documentation
+
+        """Return the App favicon"""
 
     async def favicon_ico(self):
-        """Return the App favicon"""
         return self.favicon
 
 

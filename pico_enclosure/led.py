@@ -13,7 +13,7 @@ DEFAULT_COLOR = (0, 0, 0)
 
 
 class NeoPixel(BaseDevice):
-    """A WS2812 LED, also known as a NeoPixel.
+    __doc__ = """A single color NeoPixel
 
     Args:
         name: A unique identifier for the LED strip
@@ -41,11 +41,12 @@ class NeoPixel(BaseDevice):
             v: (round(255 * self._default_brightness / 100),) * 3
             for v in range(len(self))
         }
-        super().__init__(name, None)
 
-        api.route(f"/{self.name}/set")(self.set)
-        api.route(f"/{self.name}/on")(self.on)
-        api.route(f"/{self.name}/off")(self.off)
+        super().__init__(name, api)
+
+        self.group.route("/set")(self.set)
+        self.group.route("/on")(self.on)
+        self.group.route("/off")(self.off)
 
         if self.__class__ == NeoPixel:
             asyncio.run(self.on())
@@ -59,37 +60,46 @@ class NeoPixel(BaseDevice):
         self._np.write()
         await asyncio.sleep_ms(DELAY)
 
-    async def set(self, *, brightness: int):
-        """Fill the LED with a single color.
+    @api.doc(
+        """Set the brightness of the NeoPixel
 
         Args:
             brightness: How bright to set the Neopixel (0-100)
 
         """
+    )
+    async def set(self, *, brightness: int):
         brightness = int(brightness)
         await self._write_to_neopixel((round(255 * brightness / 100),) * 3)
+        return {"brightness": brightness}
 
+    @api.doc(
+        """Turn on the NeoPixel, restoring its state""",
+    )
     async def on(self):
-        """Turn the LED strip on, restoring it to the previously set values."""
         for idx in range(len(self)):
             if idx in self.blacklist:
                 continue
             self._np[idx] = self._state[idx]
         self._np.write()
         await asyncio.sleep_ms(DELAY)
+        return {}
 
+    @api.doc(
+        """Turn off the NeoPixel""",
+    )
     async def off(self):
-        """Turn off the LED strip."""
         for idx in range(len(self)):
             self._np[idx] = (0, 0, 0)
         self._np.write()
+        return {}
 
     def __len__(self):
         return self._length
 
 
 class RGBNeoPixel(NeoPixel):
-    """An RGB NeoPixel.
+    __doc__ = """An RGB NeoPixel
 
     Args:
         name: A unique identifier for the LED strip
@@ -127,6 +137,18 @@ class RGBNeoPixel(NeoPixel):
         self._state = {v: self._default_color for v in range(len(self))}
         asyncio.run(self.on())
 
+    @api.doc(
+        """Set the color and brightness of the NeoPixel
+
+        Args:
+            red: The brightness value for the red channel (0-255)
+            green: The brightness value for the green channel (0-255)
+            blue: The brightness value for the blue channel (0-255)
+            color: The name of a color
+            brightness: A relative brightness scaling across all channels (0-100)
+
+        """
+    )
     async def set(
         self,
         *,
@@ -136,15 +158,6 @@ class RGBNeoPixel(NeoPixel):
         brightness: int = None,
         color: str = None,
     ):
-        """Fill the LED with a single color.
-
-        Args:
-            red: The brightness value for the red channel (0-255)
-            green: The brightness value for the green channel (0-255)
-            blue: The brightness value for the blue channel (0-255)
-            brightness: A relative brightness scaling across all channels (0-100)
-
-        """
         brightness = int(brightness or self._default_brightness or 100)
         if red or green or blue:
             if red is None or green is None or blue is None:
@@ -170,6 +183,11 @@ class RGBNeoPixel(NeoPixel):
             )
 
         await self._write_to_neopixel(color_tuple)
+        return {
+            "red": self._state[0][0],
+            "green": self._state[0][1],
+            "blue": self._state[0][2],
+        }
 
 
 class _OnboardLED(BaseDevice):
