@@ -25,12 +25,14 @@ from micropython import const  # pyright: ignore
 import uasyncio as asyncio
 import gc
 
+from .button import VirtualToggleButton, MomentaryButton, ToggleButton
 from .fan import Fan
 from .led import NeoPixel, _OnboardLED, RGBNeoPixel
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
 from .logging import logger
+from .event_actions import parse_event_action
 
 
 DEVICE_MAP = {
@@ -41,6 +43,9 @@ DEVICE_MAP = {
     const("DHT11"): DHT11.try_to_instantiate(),
     const("DHT22"): DHT22.try_to_instantiate(),
     const("AM2302"): DHT22.try_to_instantiate(),
+    const("VirtualToggleButton"): VirtualToggleButton.try_to_instantiate(),
+    const("MomentaryButton"): MomentaryButton.try_to_instantiate(),
+    const("ToggleButton"): ToggleButton.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"
@@ -97,13 +102,13 @@ class Devices:
                 },
             )
             for name, entry in device_json.items()
-            if name not in ["network", "actions", "context"]
+            if name not in ["network", "actions", "context", "events"]
         }
 
         self.devices = {k: v for k, v in self.devices.items() if v}
         self.devices["_OnboardLED"] = _OnboardLED()
 
-        for action_name, steps in device_json["actions"].items():
+        for action_name, steps in device_json.get("actions", {}).items():
             compiled_steps = []
 
             for step in steps:
@@ -125,6 +130,18 @@ class Devices:
             else:
                 api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
 
+        self.events = {}
+        for event in device_json.get("events", []):
+            device = event.pop("device")
+            if device not in self.events:
+                self.events[device] = {}
+            state = event.pop("state")
+            if state not in self.events[device]:
+                self.events[device][state] = []
+            self.events[device][state].extend(
+                parse_event_action(event.pop("action"), devices=self.devices)
+            )
+
         gc.collect()
         api.documentation  # Generate the documentation
         # api.favicon
@@ -144,7 +161,8 @@ class Devices:
         )
 
         for device in self.devices.values():
-            asyncio.create_task(device._loop())
+            if device is not None:
+                asyncio.create_task(device._loop(events=self.events))
 
         while True:
             await asyncio.sleep(5)

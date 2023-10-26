@@ -324,6 +324,7 @@ class API:
         """
 
         request = str(await reader.readline())
+        logger.info(request)
         while await reader.readline() != b"\r\n":  # Ignore headers
             pass
 

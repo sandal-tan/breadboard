@@ -127,7 +127,7 @@ class CCS811(BaseDevice):
         else:
             self.compensation_device = None
 
-    async def _loop(self):
+    async def _loop(self, **_):
         while True:
             if self.compensation_device:
                 # Use an external temperature and humidity device for reading compensation
@@ -461,7 +461,7 @@ class DHTXX(BaseDevice):
             "humidity": self._humidity,
         }
 
-    async def _loop(self):
+    async def _loop(self, **_):
         if self.loop:
             while True:
                 await self.data()

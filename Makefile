@@ -1,4 +1,4 @@
-install: deploy
+install: deploy devices
 	ampy put main.py
 
 test: deploy
@@ -10,7 +10,9 @@ test: deploy
 repl: deploy
 	rshell repl
 
+devices:
+	ampy put ./devices_${DEVICE}.json devices.json
+
 deploy:
 	ampy put ./breadboard
-	ampy put ./devices.json devices.json
 	ampy put favicon.ico

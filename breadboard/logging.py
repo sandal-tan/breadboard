@@ -51,7 +51,7 @@ class Logger:
 
     """
 
-    def __init__(self, serial_log=True, file_log=True, level="INFO"):
+    def __init__(self, serial_log=True, file_log=True, level="DEBUG"):
         self.serial_log = serial_log
         self.file_log = file_log
         if self.file_log:

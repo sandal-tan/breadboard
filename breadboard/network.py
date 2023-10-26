@@ -4,6 +4,8 @@ from time import sleep
 
 from network import WLAN, STA_IF, AP_IF  # pyright: ignore [reportMissingImports]
 
+from .logging import logger
+
 WIFI_MODES = ("client", "ap")
 
 AP_NETWORK_DEFAULT_NAME = "pico-print"
@@ -44,6 +46,7 @@ class Network:
                 ssid,
                 password or None,
             )
+            logger.info(f"Connected to {ssid} at {self._network.ifconfig()[0]}")
         elif mode == WIFI_MODES[1]:
             self._network = WLAN(AP_IF)  # pyright: ignore [reportGeneralTypeIssues]
             self._network.config(
