@@ -32,8 +32,7 @@ from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
 from .logging import logger
-from .event_actions import parse_event_action
-
+from .event_actions import parse_event_actions
 
 DEVICE_MAP = {
     const("Fan"): Fan.try_to_instantiate(),
@@ -139,7 +138,7 @@ class Devices:
             if state not in self.events[device]:
                 self.events[device][state] = []
             self.events[device][state].extend(
-                parse_event_action(event.pop("action"), devices=self.devices)
+                parse_event_actions(event.pop("action"), devices=self.devices)
             )
 
         gc.collect()

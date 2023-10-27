@@ -49,7 +49,7 @@ class DeviceAction:
         name: The name of the device
         action: The action to take with the device
         devices: The devices present on the microcontroller
-        kwargs: Keyword arguments passed to ``namme.action``
+        kwargs: Keyword arguments passed to ``name.action``
 
     """
 
@@ -64,7 +64,7 @@ class DeviceAction:
 EVENT_ACTIONS = {"webhook": Webhook, "device": DeviceAction}
 
 
-def parse_event_action(raw_json, devices):
+def parse_event_actions(raw_json, devices):
     """Parse a JSON object for event actions.
 
     Args:
@@ -76,7 +76,11 @@ def parse_event_action(raw_json, devices):
 
     """
     event_actions = []
-    for action, arguments in raw_json.items():
-        event_actions.append(EVENT_ACTIONS[action](**arguments, devices=devices))
+    if isinstance(raw_json, dict):
+        raw_json = [raw_json]
+
+    for action in raw_json:
+        for action, arguments in action.items():
+            event_actions.append(EVENT_ACTIONS[action](**arguments, devices=devices))
 
     return event_actions
