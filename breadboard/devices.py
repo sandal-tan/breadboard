@@ -33,6 +33,8 @@ from .environment import CCS811, DHT11, DHT22
 from .api import api
 from .logging import logger
 from .event_actions import parse_event_actions
+from .serial import Serial
+from .switch import Switch
 
 DEVICE_MAP = {
     const("Fan"): Fan.try_to_instantiate(),
@@ -45,6 +47,8 @@ DEVICE_MAP = {
     const("VirtualToggleButton"): VirtualToggleButton.try_to_instantiate(),
     const("MomentaryButton"): MomentaryButton.try_to_instantiate(),
     const("ToggleButton"): ToggleButton.try_to_instantiate(),
+    const("Serial"): Serial.try_to_instantiate(),
+    const("Switch"): Switch.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"

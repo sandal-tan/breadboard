@@ -51,7 +51,7 @@ class Logger:
 
     """
 
-    def __init__(self, serial_log=True, file_log=True, level="DEBUG"):
+    def __init__(self, serial_log=True, file_log=False, level="DEBUG"):
         self.serial_log = serial_log
         self.file_log = file_log
         if self.file_log:
@@ -87,7 +87,7 @@ class Logger:
         if requested_level >= self._level:
             for requested, dest, template in [
                 (self.serial_log, sys.stdout, LOG_MSG_TEMPLATE),
-                (self.file_log, self.log_buffer, HTML_LOG_MSG_TEMPLATE),
+                (self.file_log, self.log_buffer if self.file_log else None, HTML_LOG_MSG_TEMPLATE),
             ]:
                 if requested:
                     dest.write(

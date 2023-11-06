@@ -99,7 +99,7 @@ class EndpointGroup:
         self.api = api
         self.__doc__ = getattr(container_class, "__doc__", "")
 
-    def route(self, path: str, doc: bool = True, navbar: bool = False):
+    def route(self, path: str, doc: bool = False, navbar: bool = False):
         route = "".join(["/" + self.name, path])
 
         def _wrap_func(endpoint):
@@ -314,6 +314,41 @@ class API:
 
         return _wrap_func
 
+    def unquote(self, string):
+        """unquote('abc%20def') -> b'abc def'.
+
+        Note: if the input is a str instance it is encoded as UTF-8.
+        This is only an issue if it contains unescaped non-ASCII characters,
+        which URIs should not.
+
+        Source:
+            https://forum.micropython.org/viewtopic.php?t=3076#p54352
+        """
+
+        if not string:
+            return ""
+
+        if isinstance(string, str):
+            string = string.encode("utf-8")
+
+        bits = string.split(b"%")
+        if len(bits) == 1:
+            return string.decode()
+
+        res = bytearray(bits[0])
+        append = res.append
+        extend = res.extend
+
+        for item in bits[1:]:
+            try:
+                append(int(item[:2], 16))
+                extend(item[2:])
+            except KeyError:
+                append(b"%")
+                extend(item)
+
+        return bytes(res).decode()
+
     async def route_requests(self, reader, writer):
         """Route incoming requests.
 
@@ -323,8 +358,9 @@ class API:
 
         """
 
-        request = str(await reader.readline())
-        logger.info(request)
+        # request = self.unquote((await reader.readline()))
+        request = (await reader.readline()).decode()
+        # logger.info(repr(request))
         while await reader.readline() != b"\r\n":  # Ignore headers
             pass
 
@@ -332,7 +368,7 @@ class API:
         _, request_path, _ = request.split(
             " "
         )  # Break apart "GET \this\path?arg=1 HTTP/1.1"
-        parts = request_path.split("?")
+        parts = self.unquote(request_path).split("?")
         route = parts[0]
 
         if len(parts) == 2:
@@ -348,9 +384,11 @@ class API:
         try:
             result = await self._routes[route](**params or {})
         except KeyError:
+            result = {"error": f"Not found: {route}"}
             response_code = HTTP_STATUS_CODES._404
             log_method = self.logger.error
         except Exception as e:
+            result = {"error": "Unexpected server error"}
             response_code = HTTP_STATUS_CODES._500
             log_method = self.logger.error
             log_message = _exception_to_str(e)

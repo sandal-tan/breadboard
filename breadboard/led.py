@@ -17,7 +17,7 @@ class NeoPixel(BaseDevice):
 
     Args:
         name: A unique identifier for the LED strip
-        pin: The pin to which the LED strip is connected.
+        pin: The pin (or list of pins) to which the LED strip is connected.
         count: The number of LEDs in the strip. Default is 1
         blacklist: Indexes of LEDs to skip in the strip. Useful if you have a bad LED.
         default_brightness: The default brightness to set the NeoPixel(s)
@@ -28,13 +28,16 @@ class NeoPixel(BaseDevice):
         self,
         *,
         name: str,
-        pin: int,
+        pin,
         count: int = 1,
         blacklist=None,
         default_brightness=None,
     ):
         self._length = count
-        self._np = _NeoPixel(Pin(pin), count)
+        if not isinstance(pin, list):
+            pin = [pin]
+        # TODO support multicount setups
+        self._nps = [_NeoPixel(Pin(p), count) for p in pin]
         self.blacklist = blacklist or []
         self._default_brightness = default_brightness or 0
         self._state = {
@@ -55,9 +58,13 @@ class NeoPixel(BaseDevice):
         for idx in range(len(self)):
             if idx in self.blacklist:
                 continue
-            self._np[idx] = color_tuple
-            self._state[idx] = color_tuple  # pyright: ignore [reportGeneralTypeIssues]
-        self._np.write()
+            for np in self._nps:
+                np[idx] = color_tuple
+                self._state[
+                    idx
+                ] = color_tuple  # pyright: ignore [reportGeneralTypeIssues]
+        for np in self._nps:
+            np.write()
         await asyncio.sleep_ms(DELAY)
 
     @api.doc(
@@ -80,8 +87,10 @@ class NeoPixel(BaseDevice):
         for idx in range(len(self)):
             if idx in self.blacklist:
                 continue
-            self._np[idx] = self._state[idx]
-        self._np.write()
+            for np in self._nps:
+                np[idx] = self._state[idx]
+        for np in self._nps:
+            np.write()
         await asyncio.sleep_ms(DELAY)
         return {}
 
@@ -90,8 +99,10 @@ class NeoPixel(BaseDevice):
     )
     async def off(self):
         for idx in range(len(self)):
-            self._np[idx] = (0, 0, 0)
-        self._np.write()
+            for np in self._nps:
+                np[idx] = (0, 0, 0)
+        for np in self._nps:
+            np.write()
         return {}
 
     def __len__(self):
@@ -103,7 +114,7 @@ class RGBNeoPixel(NeoPixel):
 
     Args:
         name: A unique identifier for the LED strip
-        pin: The pin to which the LED strip is connected.
+        pin: The pin (or list of pins) to which the LED strip is connected.
         count: The number of LEDs in the strip. Default is 1
         blacklist: Indexes of LEDs to skip in the strip. Useful if you have a bad LED.
         default_brightness: The default brightness to set the NeoPixel(s)
@@ -116,7 +127,7 @@ class RGBNeoPixel(NeoPixel):
         self,
         *,
         name: str,
-        pin: int,
+        pin,
         count: int = 1,
         blacklist=None,
         default_brightness=None,

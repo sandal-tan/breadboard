@@ -141,7 +141,7 @@ class VirtualToggleButton(StatefulDevice):
         events.
         """
         self._events = events
-        await self.manage_state(self._events)
+        # await self.manage_state(self._events)
 
     @api.doc("""Turn on the virtual button.""")
     async def on(self):
