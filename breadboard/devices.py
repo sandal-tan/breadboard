@@ -31,6 +31,7 @@ from .led import NeoPixel, _OnboardLED, RGBNeoPixel
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
+from .lcd import HD44780U_LCD
 from .logging import logger
 from .event_actions import parse_event_actions
 from .serial import Serial
@@ -49,6 +50,7 @@ DEVICE_MAP = {
     const("ToggleButton"): ToggleButton.try_to_instantiate(),
     const("Serial"): Serial.try_to_instantiate(),
     const("Switch"): Switch.try_to_instantiate(),
+    const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = "devices.json"
