@@ -92,7 +92,10 @@ class Devices:
         with open(path, "r") as fp:
             device_json = json.load(fp)
 
-        self._network = Network(**device_json.get("network") or {})
+        if network_json := device_json.get("network"):
+            self._network = Network(**network_json)
+        else:
+            self._network = None
 
         self.devices = {
             name: DEVICE_MAP[entry["device"]](
@@ -133,7 +136,10 @@ class Devices:
                     logger.error(str(e))
                     break
             else:
-                api.route(f"/action/{action_name}")(_execute_functions(compiled_steps))
+                if self._network:
+                    api.route(f"/action/{action_name}")(
+                        _execute_functions(compiled_steps)
+                    )
 
         self.events = {}
         for event in device_json.get("events", []):
@@ -148,7 +154,9 @@ class Devices:
             )
 
         gc.collect()
-        api.documentation  # Generate the documentation
+
+        if self._network:
+            api.documentation  # Generate the documentation
         # api.favicon
 
     def __getitem__(self, key):
@@ -157,13 +165,14 @@ class Devices:
     async def loop(self):
         """The main execution loop."""
 
-        asyncio.create_task(
-            asyncio.start_server(
-                api.route_requests,
-                self._network.hosts,
-                self._network.port,
+        if self._network:
+            asyncio.create_task(
+                asyncio.start_server(
+                    api.route_requests,
+                    self._network.hosts,
+                    self._network.port,
+                )
             )
-        )
 
         for device in self.devices.values():
             if device is not None:
