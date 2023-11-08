@@ -7,12 +7,12 @@ test: deploy
 	#ampy run ./tests/test_network.py
 	ampy run ./tests/test_environment.py
 
-repl: deploy
-	rshell repl
+run:
+	rshell repl '~ import main'
 
 devices:
 	ampy put ./devices_${DEVICE}.json devices.json
 
 deploy:
 	ampy put ./breadboard
-	ampy put favicon.ico
+	#ampy put favicon.ico

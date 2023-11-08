@@ -27,6 +27,8 @@ class HD44780U_LCD(BaseDevice):
         show_cursor: Whether or not to illuminate the cursor on the display
         blink_cursor: Whether or not the cursor should blink
         default_string: A string to display after initializing the display
+        auto_newline: Whether or not to automatically insert newlines when the cursor reaches
+            the display end
 
     Notes:
         - https://cdn-shop.adafruit.com/datasheets/HD44780.pdf
@@ -49,9 +51,10 @@ class HD44780U_LCD(BaseDevice):
         data_pins: list[int],
         columns: int = 16,
         rows: int = 2,
-        show_cursor: bool = True,
+        show_cursor: bool = False,
         blink_cursor: bool = False,
         default_string: str = None,
+        auto_newline: bool = False,
     ):
         self._rs = Pin(register_shift_pin, Pin.OUT, value=0)
         self._e = Pin(enable_pin, Pin.OUT, value=0)
@@ -82,6 +85,12 @@ class HD44780U_LCD(BaseDevice):
         self.group.route("/clear")(self.clear)
         self.group.route("/write")(self.write)
         self._default_string = default_string
+        self._auto_newline = auto_newline
+
+        # Force newlines at column length
+        # By default, the LCD's won't wrap until the 40th character is written
+        self._max_cursor_x: int = (self.columns if self._auto_newline else 40) - 1
+        self._max_cursor_y: int = self.columns - 1
 
     def _enable(self):
         """Start the read/write cycle."""
@@ -94,9 +103,9 @@ class HD44780U_LCD(BaseDevice):
 
     def move_to(self, x: int, y: int, update_cursor: bool = True):
         if update_cursor:
-            if x > self.columns - 1 or y > self.rows - 1:
+            if x > self._max_cursor_x or y > self._max_cursor_y:
                 raise RuntimeError(
-                    f"Coordinates must be within (0, 0) -> ({self.columns-1}, {self.rows-1})"
+                    f"Coordinates must be within (0, 0) -> ({self._max_cursor_x}, {self._max_cursor_y}): ({x}, {y})"
                 )
 
             x_y_value = x + 64 * y
@@ -113,7 +122,6 @@ class HD44780U_LCD(BaseDevice):
             )
 
         self.x, self.y = x, y
-        logger.debug("Moved cursor to (%s, %s)", self.x, self.y)
 
     def write_char(self, char: str):
         """Write a character to the display at the current cursor position.
@@ -122,33 +130,38 @@ class HD44780U_LCD(BaseDevice):
             char: The character to write
 
         """
-        char_value = ord(char)
+        if char != "\n":
+            char_value = ord(char)
 
-        # # Pin.value(x): The pin will be set to 1 if the value of x : bool(x) == True
-        # # so no need to shift result
+            # # Pin.value(x): The pin will be set to 1 if the value of x : bool(x) == True
+            # # so no need to shift result
 
-        self._set_data(
-            char_value & 0x80,  # >> 7
-            char_value & 0x40,  # >> 6
-            char_value & 0x20,  # >> 5
-            char_value & 0x10,  # >> 4
-            char_value & 0x08,  # >> 3
-            char_value & 0x04,  # >> 2
-            char_value & 0x02,  # >> 1
-            char_value & 0x01,
-            rs=1,
-        )
-        logger.debug("Wrote %s", char)
+            self._set_data(
+                char_value & 0x80,  # >> 7
+                char_value & 0x40,  # >> 6
+                char_value & 0x20,  # >> 5
+                char_value & 0x10,  # >> 4
+                char_value & 0x08,  # >> 3
+                char_value & 0x04,  # >> 2
+                char_value & 0x02,  # >> 1
+                char_value & 0x01,
+                rs=1,
+            )
 
-        x = self.x + 1
-        y = self.y
-        newline = False
-        if x > self.columns - 1:
+            x = self.x + 1
+
+            newline = False
+        else:
             newline = True
-            logger.debug("Writing newline")
+            x = self._max_cursor_x + 1
+
+        y = self.y
+
+        if x > self._max_cursor_x:
+            newline = self._auto_newline or newline
             x = 0
             y += 1
-            if y > self.rows - 1:
+            if y > self._max_cursor_y:
                 y = 0
         self.move_to(x, y, newline)
 
