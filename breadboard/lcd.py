@@ -6,6 +6,9 @@ from machine import Pin  # pyright: ignore [reportMissingImports]
 from .api import api
 from .base import BaseDevice
 
+HD44780U_LCD_CLEAR_SLEEP_TIME: int = 4100
+"""The number of microseconds to wait after clearing the display."""
+
 
 class HD44780U_LCD(BaseDevice):
     """An HD44780U-based LCD.
@@ -66,6 +69,8 @@ class HD44780U_LCD(BaseDevice):
 
         super().__init__(name, api)
 
+        self.x = None
+        self.y = None
         self._reset()
         if default_string:
             asyncio.run(self.write(default_string))
@@ -82,7 +87,7 @@ class HD44780U_LCD(BaseDevice):
         self._e.value(0)
         sleep_us(40)
 
-    def write_char(self, char: str):
+    async def write_char(self, char: str):
         """Write a character to the display at the current cursor position.
 
         Args:
@@ -97,17 +102,26 @@ class HD44780U_LCD(BaseDevice):
                 # Pin.value(x): The pin will be set to 1 if the value of x : bool(x) == True
                 # so no need to shift result
                 self._set_data(
-                    nibble & 0x08,
-                    nibble & 0x04,
-                    nibble & 0x02,
+                    nibble & 0x08,  # >> 3
+                    nibble & 0x04,  # >> 2
+                    nibble & 0x02,  # >> 1
                     nibble & 0x01,
                 )
+
+        self.x += 1
+
+        if self.x >= self.columns:
+            self.x = 0
+            self.y += 1
+            if self.y >= self.rows:
+                self.y = 0
+                # TODO: go home
 
     @api.doc("Write a string to the display")
     async def write(self, string: str):
         """Write a string to the display."""
         for char in string:
-            self.write_char(char)
+            await self.write_char(char)
         return {"written": string}
 
     def _set_data(self, *bits):
@@ -122,6 +136,8 @@ class HD44780U_LCD(BaseDevice):
         self._set_data(0, 0, 0, 0)
         self._set_data(0, 0, 0, 1)
         sleep_us(4100)
+        self.x = 0
+        self.y = 0
         return {"clear": True}
 
     def _reset(self):
@@ -145,9 +161,8 @@ class HD44780U_LCD(BaseDevice):
         # N F * *
         # N: number of lines in display (0: 1, 1: 2)
         # F: Font (0: 5x8 characters, 1: 5x10 characters)
-        # TODO: Do I need to worry about 5x10 characters?
         self._set_data(0, 0, 1, 0)
-        self._set_data(int(bool(self.rows)), 0, 0, 0)
+        self._set_data(bool(self.rows), 0, 0, 0)
 
         # Display on
         # 0 0 0 0
@@ -156,12 +171,13 @@ class HD44780U_LCD(BaseDevice):
         # C: Show cursor (0: hide, 1: show)
         # B: Blink cursor (0: steady, 1: blink)
         self._set_data(0, 0, 0, 0)
-        self._set_data(1, 1, int(self.show_cursor), int(self.blink_cursor))
+        self._set_data(1, 1, self.show_cursor, self.blink_cursor)
 
         # Display clear
-        self._set_data(0, 0, 0, 0)
-        self._set_data(0, 0, 0, 1)
-        sleep_us(4100)
+        asyncio.run(self.clear())
+        # self._set_data(0, 0, 0, 0)
+        # self._set_data(0, 0, 0, 1)
+        # sleep_us(4100)
 
         # Entry mode set
         # 0 0 0   0
