@@ -33,7 +33,7 @@ Alternatively, you can install the environment via pip:
 $ pip install .
 ```
 
-Once your device is [configured][#configuration] with a `device.json`, you can install the firmware and configuration
+Once your device is [configured][#Configuration] with a `device.json`, you can install the firmware and configuration
 onto your device with:
 
 ```bash
@@ -63,7 +63,7 @@ If you wish to include the source in a project for development/whatever needs, t
 $ micropython -m mip install github:sandal-tan/breadboard -t . --no-mpy
 ```
 
-## <a name="configuration">Configuration</a>
+## Configuration
 
 The firmware is configured with a `breadboard.json` file that is installed onto the target. This file contains
 configuration for devices, networking, operation context, chains and events.
@@ -93,7 +93,7 @@ key that dictates the type of attached component. Additional keys will be taken 
 Available devices can be found
 [here](https://github.com/sandal-tan/breadboard/blob/bf71975f1572bb11314731f88fface78b5d71fcc/breadboard/devices.py#L20)
 
-### <a name="networking">Networking</a>
+### Networking
 
 If your target has wireless capabilities, you can configure the network via a network entry in `devices.json`:
 
@@ -215,7 +215,7 @@ curl "http://<target_ip_address>/exhuast_fan/set?value=50"
 curl "http://<target_ip_address>/lights/set?red=255&green=255&brightness=10
 ```
 
-The networking aspect of the API is configured under the [networking section][#networking]. By default, the API runs on
+The networking aspect of the API is configured under the [networking section][#Networking]. By default, the API runs on
 port 80 and allows all hosts to connect. Both of these values can be changed:
 
 ```json
