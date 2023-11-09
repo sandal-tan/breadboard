@@ -11,6 +11,10 @@ from .logging import logger
 class Serial(BaseDevice):
     """Create a serial device.
 
+    Notes:
+        Connection is read from during `Serial._loop` via the function passed to `on_read`.
+        If no callback is given, then the loop will terminate.
+
     Args:
         name: A name for the serial device
         uart_id: The UART peripheral to use (0, 1)
@@ -21,6 +25,7 @@ class Serial(BaseDevice):
         parity_bit: The parity (None, 0, 1)
         stop_bits: The number of stop bits (1, 2)
         timeout: The number of seconds to wait for the first character (ms)
+        on_read: A callback to perform when a line of data is ready from the connection.
 
     Source:
         https://docs.micropython.org/en/v1.15/library/machine.UART.html
@@ -38,8 +43,10 @@ class Serial(BaseDevice):
         parity_bit: int = None,
         stop_bits: int = 1,
         timeout: int = 5000,
+        on_read=None,
     ):
         super().__init__(name, api)
+        self._on_read = on_read
 
         self._uart = UART(uart_id, baudrate)
         self._uart.init(
@@ -58,18 +65,19 @@ class Serial(BaseDevice):
         """Write data to the connected serial device.
 
         Args:
-            message: The message to write
+            data: The data to write
 
         """
     )
-    async def write(self, *, message: str):
+    async def write(self, *, data: str):
         bytes_written = self._uart.write(
-            f"{message}\n".encode(),
+            f"{data}\n".encode(),
         )
         return {"bytes_written": bytes_written}
 
     async def _loop(self, **_):
-        while True:
-            while self._uart.any() and (line := self._uart.readline()) is not None:
-                logger.debug(repr(line.decode()))
-            await asyncio.sleep(0.1)
+        if self._on_read is not None:
+            while True:
+                while self._uart.any() and (line := self._uart.readline()) is not None:
+                    self._on_read(line)
+                await asyncio.sleep(0.1)
