@@ -77,7 +77,6 @@ top-level dictionary will be interpreted as the names of a `device` and should m
 key that dictates the type of attached component. Additional keys will be taken as arguments instantiate the `device`.
 
 ```json
-# breadboard.json
 {
   "exhaust_fan": {
     "device": "Fan",
@@ -91,8 +90,8 @@ key that dictates the type of attached component. Additional keys will be taken 
 }
 ```
 
-Available devices and their documentation can be found
-[here](https://github.com/sandal-tan/breadboard/tree/main/breadboard)
+Available devices can be found
+[here](https://github.com/sandal-tan/breadboard/blob/bf71975f1572bb11314731f88fface78b5d71fcc/breadboard/devices.py#L20)
 
 ### <a name="networking">Networking</a>
 
@@ -125,10 +124,9 @@ If no network is configured, an Ad-Hoc network will be created with an SSID of `
 Device actions can be grouped as a set of ordered-steps called chains:
 
 ```json
-# breadboard.json
 {
-  "exhaust_fan": {...},
-  "lights": {...},
+  "exhaust_fan": {},
+  "lights": {},
   "chains": {
     "start_print": [
       {
