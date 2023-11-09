@@ -1,9 +1,11 @@
 """Serial Interface."""
 
 from machine import UART  # pyright: ignore
+import uasyncio as asyncio  # pyright: ignore
 
 from .api import api
 from .base import BaseDevice
+from .logging import logger
 
 
 class Serial(BaseDevice):
@@ -29,7 +31,7 @@ class Serial(BaseDevice):
         self,
         name,
         uart_id,
-        baudrate: int = 9600,
+        baudrate: int = 115200,
         tx_pin: int = None,
         rx_pin: int = None,
         bits: int = 8,
@@ -65,3 +67,9 @@ class Serial(BaseDevice):
             f"{message}\n".encode(),
         )
         return {"bytes_written": bytes_written}
+
+    async def _loop(self, **_):
+        while True:
+            while self._uart.any() and (line := self._uart.readline()) is not None:
+                logger.debug(repr(line.decode()))
+            await asyncio.sleep(0.1)
