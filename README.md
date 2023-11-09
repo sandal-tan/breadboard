@@ -33,8 +33,8 @@ Alternatively, you can install the environment via pip:
 $ pip install .
 ```
 
-Once your device is [configured](#configuration) with a `device.json`, you can install the firmware and configuration
-onto your device with:
+Once your device is [configured](#configuration) with a `breadboard.json`, you can install the firmware and
+configuration onto your device with:
 
 ```bash
 $ make install
@@ -90,8 +90,7 @@ key that dictates the type of attached component. Additional keys will be taken 
 }
 ```
 
-Available devices can be found
-[here](https://github.com/sandal-tan/breadboard/tree/main/breadboard/devices.py#L20)
+Available devices can be found [here](https://github.com/sandal-tan/breadboard/tree/main/breadboard/devices.py#L20)
 
 ### Networking
 
@@ -242,3 +241,36 @@ $ brew install micropython
 [mpy-cross](https://gitlab.com/alelec/mpy_cross) is used to compile the source into bytecode. It is installed as part of
 the micropython unix port, but may not be up to date with the latest release of micropython. If that is the case, the
 releases can be found [here](https://gitlab.com/alelec/mpy_cross/-/pipelines).
+
+### mpremote recurisve removal
+
+`mpremote` provides both `rm` and `rmdir` commands, however thay are not currently capable for removing a non-empty
+directory. Their configuration and shortcut utilities allow for this to be patched in:
+
+```python
+# ~/.config/mpremote/config.py
+commands = {
+    "rmall x": [
+        "exec",
+        """
+import os
+def rmall(dir_):
+    for value in os.ilistdir(dir_):
+        name = dir_ + "/" + value[0]
+        if value[1] & 0x4000:
+            rmall(name)
+        else:
+            os.remove(name)
+    os.rmdir(dir_)
+
+rmall(x)
+""",
+    ]
+}
+```
+
+And can be invoked with:
+
+```bash
+$ poetry run mpremote rmall "'breadboard'"
+```

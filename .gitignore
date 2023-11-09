@@ -1,4 +1,4 @@
 *.pyc
-devices.json
+breadboard.json
 *.vim
 *.mpy

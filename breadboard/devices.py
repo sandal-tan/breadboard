@@ -1,4 +1,5 @@
 """Aggregate and manage attached devices via a configuration file."""
+import os
 import json
 
 from micropython import const  # pyright: ignore
@@ -33,7 +34,7 @@ DEVICE_MAP = {
     const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
 }
 
-DEFAULT_CONFIG_FILE: str = const("devices.json")
+DEFAULT_CONFIG_FILE: str = const("breadboard.json")
 """The path to the default configuration file."""
 
 NETWORK_CONFIG_KEY: str = const("network")
