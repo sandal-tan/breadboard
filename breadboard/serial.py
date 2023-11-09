@@ -45,7 +45,7 @@ class Serial(BaseDevice):
         on_read=None,
     ):
         super().__init__(name, api)
-        self._on_read = on_read
+        self.on_read = on_read
 
         self._uart = UART(uart_id, baudrate)
         self._uart.init(
@@ -75,8 +75,8 @@ class Serial(BaseDevice):
         return {"bytes_written": bytes_written}
 
     async def _loop(self, **_):
-        if self._on_read is not None:
+        if self.on_read is not None:
             while True:
                 while self._uart.any() and (line := self._uart.readline()) is not None:
-                    self._on_read(line)
+                    self.on_read(line)
                 await asyncio.sleep(0.1)
