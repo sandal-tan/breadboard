@@ -1,3 +1,4 @@
 *.pyc
 devices.json
 *.vim
+*.mpy

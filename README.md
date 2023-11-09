@@ -27,10 +27,39 @@ Once cloned, Poetry can be used to setup the environment for this project by run
 $ poetry install
 ```
 
-Once your device is [configured][2], you can install the firmware and configuration onto your device with:
+Alternatively, you can install the environment via pip:
 
 ```bash
+$ pip install .
+```
 
+Once your device is [configured][2] with a `device.json`, you can install the firmware and configuration onto your
+device with:
+
+```bash
+$ make install
+```
+
+Which will compile the bytecode, copy it to the connected device, install the configuration, and start the firmware.
+
+If you wish to tail the execution, you can run:
+
+```bash
+$ make debug
+```
+
+### Usage in other projects
+
+This package is compatible with [mip][3], to install:
+
+```bash
+$ poetry run mpremote mip install github:sandal-tan/breadboard
+```
+
+If you wish to include the source in a project for development/whatever needs, this can be done with:
+
+```bash
+$ micropython -m mip install github:sandal-tan/breadboard -t . --no-mpy
 ```
 
 ## Configuration
@@ -166,3 +195,19 @@ Multiple event actions can be defined for a single state change. Here is an exam
   ]
 }
 ```
+
+## Development Notes
+
+### Micropython
+
+You can install the Unix port of [micropython](https://micropython.org/) on mac using [HomeBrew](https://brew.sh/):
+
+```shell
+$ brew install micropython
+```
+
+### mpy-cross
+
+[mpy-cross](https://gitlab.com/alelec/mpy_cross) is used to compile the source into bytecode. It is installed as part of
+the micropython unix port, but may not be up to date with the latest release of micropython. If that is the case, the
+releases can be found [here](https://gitlab.com/alelec/mpy_cross/-/pipelines).
