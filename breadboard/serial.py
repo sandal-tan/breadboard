@@ -78,5 +78,5 @@ class Serial(BaseDevice):
         if self.on_read is not None:
             while True:
                 while self._uart.any() and (line := self._uart.readline()) is not None:
-                    self.on_read(line)
+                    await self.on_read(line)
                 await asyncio.sleep(0.1)
