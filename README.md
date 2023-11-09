@@ -18,7 +18,7 @@ Currently supported devices:
 Breadboard can be deployed and configured as is for simple use cases. To do so, clone the repository:
 
 ```bash
-$ https://github.com/sandal-tan/breadboard.git
+$ git clone https://github.com/sandal-tan/breadboard.git
 ```
 
 Once cloned, Poetry can be used to setup the environment for this project by running
@@ -33,8 +33,8 @@ Alternatively, you can install the environment via pip:
 $ pip install .
 ```
 
-Once your device is [configured][2] with a `device.json`, you can install the firmware and configuration onto your
-device with:
+Once your device is [configured][#configuration] with a `device.json`, you can install the firmware and configuration
+onto your device with:
 
 ```bash
 $ make install
@@ -50,7 +50,8 @@ $ make debug
 
 ### Usage in other projects
 
-This package is compatible with [mip][3], to install:
+This package is compatible with
+[mip](https://docs.micropython.org/en/latest/reference/packages.html#installing-packages-with-mip), to install:
 
 ```bash
 $ poetry run mpremote mip install github:sandal-tan/breadboard
@@ -62,11 +63,21 @@ If you wish to include the source in a project for development/whatever needs, t
 $ micropython -m mip install github:sandal-tan/breadboard -t . --no-mpy
 ```
 
-## Configuration
+## <a name="configuration">Configuration</a>
 
-Devices are configured with a `devices.json` file that is installed onto the Pico:
+The firmware is configured with a `breadboard.json` file that is installed onto the target. This file contains
+configuration for devices, networking, operation context, chains and events.
+
+The top level data structure should be a dictionary.
+
+### Devices
+
+Devices are configured in `breadboard.json`. Non-reserved (`context`, `network`, `events`, `chains`) keys in the
+top-level dictionary will be interpreted as the names of a `device` and should map to a dictionary containing a `device`
+key that dictates the type of attached component. Additional keys will be taken as arguments instantiate the `device`.
 
 ```json
+# breadboard.json
 {
   "exhaust_fan": {
     "device": "Fan",
@@ -80,17 +91,15 @@ Devices are configured with a `devices.json` file that is installed onto the Pic
 }
 ```
 
-Devices are added to a map, with a device name as key. The added value is itself a map that should contain a device
-designation (the `"device"` key used above) and any other instantiation parameters required to configure the device.
+Available devices and their documentation can be found
+[here](https://github.com/sandal-tan/breadboard/tree/main/breadboard)
 
-### Networking
+### <a name="networking">Networking</a>
 
-If using a Pico W or Pico WH, you can configure the network via a network entry in `devices.json`:
+If your target has wireless capabilities, you can configure the network via a network entry in `devices.json`:
 
 ```json
 {
-  "exhaust_fan": {},
-  "lights": {},
   "network": {
     "ssid": "<your_ssid>",
     "password": "<your_password>"
@@ -98,29 +107,28 @@ If using a Pico W or Pico WH, you can configure the network via a network entry 
 }
 ```
 
-If no network is configured, an Ad-Hoc network will be created.
+Or if you wish to use an Ad-Hoc network:
 
-## API
-
-An API is provided to interface with the various sensors and devices configured. A list of available endpoints can be
-found at `http://<your_pico>:8080/docs`. Devices can be accessed via API by their key names like so:
-
-```bash
-# Set fan speed to 50%
-curl "http://<your_pico>:8080/exhuast_fan/set?value=50"
-
-# Set the LEDs to white
-curl "http://<your_pico>:8080/lights/set?red=255&green=255&brightness=10
+```json
+{
+  "network": {
+    "mode": "ap"
+  }
+}
 ```
 
-## Chains
+If no network is configured, an Ad-Hoc network will be created with an SSID of `breadboard` and a password
+`cheeseplate`. Both of these values can be changed by supplying `ssid` and `password` keys to the `network` dictionary.
+
+### Chains
 
 Device actions can be grouped as a set of ordered-steps called chains:
 
 ```json
+# breadboard.json
 {
-  "exhaust_fan": {},
-  "lights": {},
+  "exhaust_fan": {...},
+  "lights": {...},
   "chains": {
     "start_print": [
       {
@@ -145,10 +153,10 @@ Chains are also made available via API:
 
 ```bash
 # Trigger the `start_print` chain
-curl "http://<your_pico>:8080/chains/start_print
+curl "http://<target_ip_address>/chains/start_print
 ```
 
-## Events
+### Events
 
 Events are when a `StatefulDevice` has a state change. Event Actions (different from the Actions above) are the actions
 taken when a state is changed to a specific value. The following event action types are supported:
@@ -193,6 +201,31 @@ Multiple event actions can be defined for a single state change. Here is an exam
       ]
     }
   ]
+}
+```
+
+## API
+
+An API is provided to interface with the various sensors and devices configured. A list of available endpoints can be
+found at `http://<target_ip_address>/docs`. Devices can be accessed via API by their key names like so:
+
+```bash
+# Set fan speed to 50%
+curl "http://<target_ip_address>/exhuast_fan/set?value=50"
+
+# Set the LEDs to white
+curl "http://<target_ip_address>/lights/set?red=255&green=255&brightness=10
+```
+
+The networking aspect of the API is configured under the [networking section][#networking]. By default, the API runs on
+port 80 and allows all hosts to connect. Both of these values can be changed:
+
+```json
+{
+  "network": {
+    "port": 8080,
+    "hosts": "192.168.1.0"
+  }
 }
 ```
 

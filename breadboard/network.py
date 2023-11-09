@@ -8,9 +8,9 @@ from .logging import logger
 
 WIFI_MODES = ("client", "ap")
 
-AP_NETWORK_DEFAULT_NAME = "pico-print"
-AP_NETWORK_DEFAULT_PASSWORD = "rocky-racoon"
-DEFAULT_PORT = 8080
+AP_NETWORK_DEFAULT_NAME = "breadboard"
+AP_NETWORK_DEFAULT_PASSWORD = "cheesplate"
+DEFAULT_PORT = 80
 ALLOWABLE_HOSTS = "0.0.0.0"
 
 
