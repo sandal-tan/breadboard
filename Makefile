@@ -11,7 +11,7 @@ run:
 	rshell repl '~ import main'
 
 devices:
-	ampy put ./devices_${DEVICE}.json devices.json
+	mpremote cp ${CONFIG_FILE} :devices.json
 
 deploy:
-	ampy put ./breadboard
+	mpremote cp -r ./breadboard :

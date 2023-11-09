@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "pico-enclosure"
+name = "breadboard"
 version = "0.1.0"
 description = ""
 authors = ["Ian Baldwin <ian@iantbaldw.in>"]
 readme = "README.md"
-packages = [{include = "pico_enclosure"}]
+packages = [{include = "breadboard"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

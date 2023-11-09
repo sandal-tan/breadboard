@@ -1,4 +1,4 @@
-# Pico Enclosure
+# Breadboard
 
 A micropython framework for interfacing to and managing connected GPIO devices. Provides an API to interact with
 connected devices, as well as an event system to trigger actions on system state changes.
@@ -12,6 +12,26 @@ Currently supported devices:
 - HD44780U/KS006U-based LCD's
 - Toggle buttons
 - Momentary Buttons
+
+## Usage & Installation
+
+Breadboard can be deployed and configured as is for simple use cases. To do so, clone the repository:
+
+```bash
+$ https://github.com/sandal-tan/breadboard.git
+```
+
+Once cloned, Poetry can be used to setup the environment for this project by running
+
+```bash
+$ poetry install
+```
+
+Once your device is [configured][2], you can install the firmware and configuration onto your device with:
+
+```bash
+
+```
 
 ## Configuration
 
