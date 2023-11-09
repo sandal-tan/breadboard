@@ -3,11 +3,12 @@
 from time import sleep_ms, time  # pyright: ignore[reportGeneralTypeIssues]
 
 
-from rp2 import PIO, asm_pio, StateMachine  # pyright: ignore[reportMissingImports]
-
+import asyncio
 from machine import SoftI2C, Pin  # pyright: ignore[reportMissingImports]
 from micropython import const  # pyright: ignore[reportMissingImports]
-import uasyncio as asyncio  # pyright: ignore[reportMissingImports]
+
+# TODO toggle this for available targets
+from rp2 import PIO, asm_pio, StateMachine  # pyright: ignore[reportMissingImports]
 
 from .api import api
 from .base import BaseDevice
@@ -23,7 +24,7 @@ Sources:
     - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=4&zoom=100,96,177
 """
 
-CCS811_DELAY: int = 100
+CCS811_DELAY: int = 0.1
 
 # Registers
 # Sources:
@@ -143,7 +144,7 @@ class CCS811(BaseDevice):
                         "big",
                     ),
                 )
-                await asyncio.sleep_ms(CCS811_DELAY)
+                await asyncio.sleep(CCS811_DELAY / 1000)
                 await asyncio.sleep(self.compensation_device._rest_time)
             else:
                 await asyncio.sleep(10)
@@ -186,7 +187,7 @@ class CCS811(BaseDevice):
                 CCS811_MEAS_REG[0],
                 byte.to_bytes(1, "big"),
             )
-            asyncio.sleep_ms(CCS811_DELAY)
+            await asyncio.sleep(CCS811_DELAY / 1000)
             return mode
         else:
             mode = int_from_big_bytes(
@@ -195,7 +196,7 @@ class CCS811(BaseDevice):
                     *CCS811_MEAS_REG,
                 ),
             )
-            asyncio.sleep_ms(CCS811_DELAY)
+            await asyncio.sleep(CCS811_DELAY / 1000)
             return {
                 "drive_mode": mode >> 4,
                 "interrupt_data_ready": bool(mode >> 3 & 1),
@@ -228,7 +229,7 @@ class CCS811(BaseDevice):
                 *CCS811_STATUS_REG,
             )
         )
-        asyncio.sleep_ms(CCS811_DELAY)
+        await asyncio.sleep(CCS811_DELAY / 1000)
         return self._parse_status(status_byte)
 
     @api.doc(
@@ -267,7 +268,7 @@ class CCS811(BaseDevice):
         if error or error == "true":
             res.update(self._parse_error(data[5]))
 
-        asyncio.sleep_ms(CCS811_DELAY)
+        await asyncio.sleep(CCS811_DELAY / 1000)
 
         return res
 
@@ -381,8 +382,8 @@ class DHTXX(BaseDevice):
 
         self._state_machine = StateMachine(self._state_machine_id)
 
-        self._temp = None
-        self._humidity = None
+        self._temp = 0.0
+        self._humidity = 0.0
 
         self._last_measurement_time = 0
         self._unit = unit

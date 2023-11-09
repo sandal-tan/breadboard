@@ -1,33 +1,13 @@
-"""Aggregate and manage attached devices via a configuration file.
-
-```json
-{
-    "exhaust_fan": {
-        "device": "Fan",
-        "pin": 17
-    },
-    "lights": {
-        "device": "NeoPixelStrip",
-        "pin":  27,
-        "led_count": 12
-    },
-    "network": {
-        "ssid": "xxyyzz",
-        "password": "asdf1234"
-    }
-}
-```
-
-"""
+"""Aggregate and manage attached devices via a configuration file."""
 import json
 
 from micropython import const  # pyright: ignore
-import uasyncio as asyncio
+import asyncio
 import gc
 
 from .button import VirtualToggleButton, MomentaryButton, ToggleButton
 from .fan import Fan
-from .led import NeoPixel, _OnboardLED, RGBNeoPixel
+from .led import NeoPixel, OnboardLED, RGBNeoPixel
 from .network import Network
 from .environment import CCS811, DHT11, DHT22
 from .api import api
@@ -53,8 +33,20 @@ DEVICE_MAP = {
     const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
 }
 
-DEFAULT_CONFIG_FILE: str = "devices.json"
+DEFAULT_CONFIG_FILE: str = const("devices.json")
 """The path to the default configuration file."""
+
+NETWORK_CONFIG_KEY: str = const("network")
+"""The key for the network configuration section."""
+
+CHAINS_CONFIG_KEY: str = const("chains")
+"""The key for the chains configuration section."""
+
+CONTEXT_CONFIG_KEY: str = const("context")
+"""The key for the context configuration section."""
+
+EVENTS_CONTEXT_KEY: str = const("events")
+"""The key for the events configuration section."""
 
 
 def _curry(func, params):
@@ -92,7 +84,7 @@ class Devices:
         with open(path, "r") as fp:
             device_json = json.load(fp)
 
-        if network_json := device_json.get("network"):
+        if network_json := device_json.get(NETWORK_CONFIG_KEY):
             self._network = Network(**network_json)
         else:
             self._network = None
@@ -110,39 +102,46 @@ class Devices:
                 },
             )
             for name, entry in device_json.items()
-            if name not in ["network", "actions", "context", "events"]
+            if name
+            not in [
+                NETWORK_CONFIG_KEY,
+                CHAINS_CONFIG_KEY,
+                CONTEXT_CONFIG_KEY,
+                EVENTS_CONTEXT_KEY,
+            ]
         }
 
         self.devices = {k: v for k, v in self.devices.items() if v}
-        self.devices["_OnboardLED"] = _OnboardLED()
+        self.devices["_OnboardLED"] = OnboardLED()
 
-        for action_name, steps in device_json.get("actions", {}).items():
+        for chain_name, steps in device_json.get(CHAINS_CONFIG_KEY, {}).items():
             compiled_steps = []
 
             for step in steps:
                 try:
-                    action_func = getattr(
+                    # TODO should these share the same underlying actions as events?
+                    chain_func = getattr(
                         self.devices[step.pop("device")],
                         step.pop("action"),
                     )
-                    compiled_steps.append(_curry(action_func, step))
+                    compiled_steps.append(_curry(chain_func, step))
                 except KeyError as e:
                     logger.error(
-                        "Failed to find device %s for action %s", str(e), action_name
+                        "Failed to find device %s for action %s", str(e), chain_name
                     )
                     break
                 except Exception as e:
-                    logger.error("Failed to load action: %s", action_name)
+                    logger.error("Failed to load action: %s", chain_name)
                     logger.error(str(e))
                     break
             else:
                 if self._network:
-                    api.route(f"/action/{action_name}")(
+                    api.route(f"/chain/{chain_name}")(
                         _execute_functions(compiled_steps)
                     )
 
         self.events = {}
-        for event in device_json.get("events", []):
+        for event in device_json.get(EVENTS_CONTEXT_KEY, []):
             device = event.pop("device")
             if device not in self.events:
                 self.events[device] = {}
@@ -157,7 +156,6 @@ class Devices:
 
         if self._network:
             api.documentation  # Generate the documentation
-        # api.favicon
 
     def __getitem__(self, key):
         return self.devices[key]

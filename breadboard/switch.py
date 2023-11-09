@@ -1,8 +1,8 @@
 """Interface with switches as selectors."""
 
+import asyncio
 from machine import Pin  # pyright: ignore [reportMissingImports]
 from micropython import const  # pyright: ignore[reportMissingImports]
-import uasyncio as asyncio  # pyright: ignore [reportMissingImports]
 
 from .api import api
 from .base import StatefulDevice
@@ -43,9 +43,9 @@ class Switch(StatefulDevice):
             self._state = self._pins_to_state[OFF_STATE][1]
 
         self.poll_sleep = poll_sleep
-        self.on_state_change = self.toggle_state
 
-    def toggle_state(self):
+    def manage_state(self):
+        """Toggle between states based on the pin's physical state."""
         pin_active = False
         for pin, state in self._pins_to_state.values():
             if pin and pin.value():
@@ -61,5 +61,5 @@ class Switch(StatefulDevice):
 
     async def _loop(self, events):
         while True:
-            await self.manage_state(events)
+            await self.process_events(events)
             await asyncio.sleep(self.poll_sleep)

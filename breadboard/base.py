@@ -1,6 +1,4 @@
 """Base objects."""
-import uasyncio as asyncio  # pyright: ignore
-
 
 from .logging import logger
 
@@ -14,7 +12,7 @@ class BaseDevice:
         self.name = name
         self.group = api.register(self.name, self)
 
-    async def _loop(self, **kwargs):
+    async def _loop(self, **_):
         return
 
     @classmethod
@@ -39,25 +37,36 @@ class StatefulDevice(BaseDevice):
 
     def __init__(self, name, api):
         self._state = None
-        self.on_state_change = lambda: None
+        self.manage_state = lambda: None
         super().__init__(name, api)
 
         self.group.route("/state")(self.get_state)
 
     @property
     def state(self):
+        """Get the current state of a device."""
         if self._state == None:
             raise RuntimeError("A state must be set")
         return self._state
 
     @property
     def states(self):
+        """Get the possible states of the device."""
         if self._states is None:
             raise RuntimeError("Possible states must be given")
         return self._states
 
-    async def manage_state(self, events):
-        self.on_state_change()
+    async def process_events(self, events: dict[str, dict[str, list]]):
+        """Process the events for this device.
+
+        Notes:
+            This should be called during the overridden `_loop` function
+            defined on the implemented device.
+
+        Events: The collection of events
+
+        """
+        self.manage_state()
         # TODO validate state in events are valid for device
         for event_action in events.get(self.name, {}).get(self.state, []):
             await event_action()

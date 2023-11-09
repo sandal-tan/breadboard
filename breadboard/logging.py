@@ -17,7 +17,11 @@ REV_LOGGING_LEVELS = {v: k for k, v in LOGGING_LEVELS.items()}
 LOG_MSG_TEMPLATE = '{"timestamp": "%(time)s", "level": "%(level)s"%(custom_entries)s, "message": "%(message)s"}'  # TODO how to include message source? __file__?
 
 # TODO: make alert class dynamic
-HTML_LOG_MSG_TEMPLATE = '<div class="row"><div class="col"><div class="alert alert-primary text-wrap" role="alert"><pre><code>' + LOG_MSG_TEMPLATE + '</code></pre></div></div></div>'  # TODO how to include message source? __file__?
+HTML_LOG_MSG_TEMPLATE = (
+    '<div class="row"><div class="col"><div class="alert alert-primary text-wrap" role="alert"><pre><code>'
+    + LOG_MSG_TEMPLATE
+    + "</code></pre></div></div></div>"
+)  # TODO how to include message source? __file__?
 
 
 def _curry(func, **params):
@@ -80,14 +84,19 @@ class Logger:
             message = message % params
 
         if kwargs:
-            custom_entries = "".join(f', "{k}": "{str(v).replace('"', '\\"')}"' for k, v in kwargs.items())
+            ...
+            # custom_entries = "".join(f', "{k}": "{str(v).replace(\'"\', \'\\"\')}"' for k, v in kwargs.items())
         else:
             custom_entries = ""
 
         if requested_level >= self._level:
             for requested, dest, template in [
                 (self.serial_log, sys.stdout, LOG_MSG_TEMPLATE),
-                (self.file_log, self.log_buffer if self.file_log else None, HTML_LOG_MSG_TEMPLATE),
+                (
+                    self.file_log,
+                    self.log_buffer if self.file_log else None,
+                    HTML_LOG_MSG_TEMPLATE,
+                ),
             ]:
                 if requested:
                     dest.write(
@@ -97,7 +106,8 @@ class Logger:
                             "level": REV_LOGGING_LEVELS[requested_level].lower(),
                             "message": message.replace("\n", " "),
                             "custom_entries": custom_entries,
-                        } + "\n"
+                        }
+                        + "\n"
                     )
 
 

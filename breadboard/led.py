@@ -1,5 +1,5 @@
 """Control LEDs"""
-import uasyncio as asyncio  # pyright: ignore [reportMissingImports]
+import asyncio
 
 from machine import Pin  # pyright: ignore [reportMissingImports]
 from neopixel import NeoPixel as _NeoPixel  # pyright: ignore [reportMissingImports]
@@ -7,7 +7,7 @@ from neopixel import NeoPixel as _NeoPixel  # pyright: ignore [reportMissingImpo
 from .api import api
 from .base import BaseDevice
 
-DELAY = 500
+DELAY = 0.5
 
 DEFAULT_COLOR = (0, 0, 0)
 
@@ -65,7 +65,7 @@ class NeoPixel(BaseDevice):
                 ] = color_tuple  # pyright: ignore [reportGeneralTypeIssues]
         for np in self._nps:
             np.write()
-        await asyncio.sleep_ms(DELAY)
+        await asyncio.sleep(DELAY)
 
     @api.doc(
         """Set the brightness of the NeoPixel
@@ -91,7 +91,7 @@ class NeoPixel(BaseDevice):
                 np[idx] = self._state[idx]
         for np in self._nps:
             np.write()
-        await asyncio.sleep_ms(DELAY)
+        await asyncio.sleep(DELAY)
         return {}
 
     @api.doc(
@@ -204,7 +204,7 @@ class RGBNeoPixel(NeoPixel):
         }
 
 
-class _OnboardLED(BaseDevice):
+class OnboardLED(BaseDevice):
     """Control the Pico's onboard LED."""
 
     def __init__(self):

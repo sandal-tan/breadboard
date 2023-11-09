@@ -1,6 +1,7 @@
 # Pico Enclosure
 
-A Raspberry Pico based framework for building "smart" enclosures and providing an API interfacing with attached sensors and devices.
+A micropython framework for interfacing to and managing connected GPIO devices. Provides an API to interact with
+connected devices, as well as an event system to trigger actions on system state changes.
 
 Currently supported devices:
 
@@ -8,6 +9,11 @@ Currently supported devices:
 - 4-pin PWM fans
 - CCS811 Gas sensors
 - DHT22/AM2302/DHT11 Temperature and humidity sensors
+- HD44780U/KS006U-based LCD's
+- Toggle buttons
+- Momentary Buttons
+
+## Configuration
 
 Devices are configured with a `devices.json` file that is installed onto the Pico:
 
@@ -25,9 +31,10 @@ Devices are configured with a `devices.json` file that is installed onto the Pic
 }
 ```
 
-Devices are added to a map, with a device name as key. The added value is itself a map
-that should contain a device designation (the `"device"` key used above) and any other
-instantiation parameters required to configure the device.
+Devices are added to a map, with a device name as key. The added value is itself a map that should contain a device
+designation (the `"device"` key used above) and any other instantiation parameters required to configure the device.
+
+### Networking
 
 If using a Pico W or Pico WH, you can configure the network via a network entry in `devices.json`:
 
@@ -44,9 +51,10 @@ If using a Pico W or Pico WH, you can configure the network via a network entry 
 
 If no network is configured, an Ad-Hoc network will be created.
 
-An API is provided to interface with the various sensors and devices configured. A list of available
-endpoints can be found at `http://<your_pico>:8080/docs`. Generally speaking, devices can be accessed
-via API by their key names like so:
+## API
+
+An API is provided to interface with the various sensors and devices configured. A list of available endpoints can be
+found at `http://<your_pico>:8080/docs`. Devices can be accessed via API by their key names like so:
 
 ```bash
 # Set fan speed to 50%
@@ -56,13 +64,15 @@ curl "http://<your_pico>:8080/exhuast_fan/set?value=50"
 curl "http://<your_pico>:8080/lights/set?red=255&green=255&brightness=10
 ```
 
-Device endpoints can be grouped as a set of ordered-steps called actions:
+## Chains
+
+Device actions can be grouped as a set of ordered-steps called chains:
 
 ```json
 {
   "exhaust_fan": {},
   "lights": {},
-  "actions": {
+  "chains": {
     "start_print": [
       {
         "device": "lights",
@@ -82,9 +92,57 @@ Device endpoints can be grouped as a set of ordered-steps called actions:
 }
 ```
 
-Actions are also made available via API:
+Chains are also made available via API:
 
 ```bash
-# Trigger the `start_print` action
-curl "http://<your_pico>:8080/actions/start_print
+# Trigger the `start_print` chain
+curl "http://<your_pico>:8080/chains/start_print
+```
+
+## Events
+
+Events are when a `StatefulDevice` has a state change. Event Actions (different from the Actions above) are the actions
+taken when a state is changed to a specific value. The following event action types are supported:
+
+- Webhook: Make a GET request to a provided URL
+- Device: execute a device function
+
+Multiple event actions can be defined for a single state change. Here is an example of event action configurations:
+
+```json
+{
+  "home_button": {
+    "device": "MomentaryButton",
+    "pin": 5,
+    "mode": "momentary"
+  },
+  "fluidnc": {
+    "device": "Serial",
+    "uart_id": 0
+  },
+  "display": {
+    "device": "HD44780U_LCD",
+    "register_shift_pin": 16,
+    "enable_pin": 17,
+    "data_pins": [21, 20, 19, 18]
+  },
+  "events": [
+    {
+      "device": "home_button",
+      "state": "on",
+      "action": [
+        {
+          "device": {
+            "name": "fluidnc",
+            "action": "write",
+            "data": "$H"
+          }
+        },
+        "device": "display",
+        "action": "write",
+        "string": "Homing..."
+      ]
+    }
+  ]
+}
 ```

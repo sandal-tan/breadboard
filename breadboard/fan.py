@@ -67,7 +67,7 @@ class Fan(BaseDevice):
 
         """
     )
-    async def set(self, value: int):
+    async def set(self, *, value: int):
         self._speed_value = int(value)
         self._set(self._speed_value)
         return {}

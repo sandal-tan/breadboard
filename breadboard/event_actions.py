@@ -1,4 +1,4 @@
-from uasyncio import open_connection  # pyright: ignore
+from asyncio import open_connection  # pyright: ignore
 import socket
 import re
 from .logging import logger, _exception_to_str
@@ -36,7 +36,7 @@ class Webhook:
             _socket.connect(socket.getaddrinfo(self._host, self._port)[0][-1])
             request = f"GET {self._path} HTTP/1.1\r\n\r\n"
             logger.debug(f"Sending `{repr(request)}` to {self._host}:{self._port}")
-            _socket.write(request.encode())
+            _socket.write(request.encode())  # pyright: ignore
             _socket.close()
         except OSError as e:
             logger.error(_exception_to_str(e))

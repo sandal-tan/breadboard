@@ -1,11 +1,10 @@
 """Serial Interface."""
 
+import asyncio
 from machine import UART  # pyright: ignore
-import uasyncio as asyncio  # pyright: ignore
 
 from .api import api
 from .base import BaseDevice
-from .logging import logger
 
 
 class Serial(BaseDevice):
