@@ -1,0 +1,7 @@
+{
+  "prettier": {
+    "proseWrap": "always",
+    "printWidth": 120
+  },
+  "version": "0.1.0"
+}

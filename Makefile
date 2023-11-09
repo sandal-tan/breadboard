@@ -15,4 +15,3 @@ devices:
 
 deploy:
 	ampy put ./breadboard
-	#ampy put favicon.ico

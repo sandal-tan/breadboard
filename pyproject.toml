@@ -10,6 +10,7 @@ packages = [{include = "pico_enclosure"}]
 python = "^3.11"
 rshell = "^0.0.31"
 adafruit-ampy = "^1.1.0"
+mpremote = "^1.21.0"
 
 
 [tool.poetry.group.dev.dependencies]
