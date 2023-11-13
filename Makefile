@@ -8,7 +8,7 @@ test: deploy
 	ampy run ./tests/test_environment.py
 
 
-install: build deploy configure clean run
+install: build deploy configure clean
 
 debug:
 	@poetry run mpremote run main.py

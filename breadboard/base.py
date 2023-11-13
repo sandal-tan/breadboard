@@ -37,7 +37,7 @@ class StatefulDevice(BaseDevice):
 
     def __init__(self, name, api):
         self._state = None
-        self.manage_state = lambda: None
+        # self.manage_state = lambda: None
         super().__init__(name, api)
 
         self.group.route("/state")(self.get_state)
@@ -66,7 +66,7 @@ class StatefulDevice(BaseDevice):
         Events: The collection of events
 
         """
-        self.manage_state()
+        await self.manage_state()
         # TODO validate state in events are valid for device
         for event_action in events.get(self.name, {}).get(self.state, []):
             await event_action()

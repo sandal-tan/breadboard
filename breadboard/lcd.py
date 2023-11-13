@@ -1,7 +1,7 @@
 """Interact with LCDs."""
 
-import uasyncio as asyncio  # pyright: ignore [reportMissingImports]
-from utime import sleep_us  # pyright: ignore [reportMissingImports]
+import asyncio as asyncio  # pyright: ignore [reportMissingImports]
+from time import sleep_us  # pyright: ignore [reportGeneralTypeIssues]
 
 from micropython import const  # pyright: ignore [reportMissingImports]
 from machine import Pin  # pyright: ignore [reportMissingImports]
@@ -103,7 +103,7 @@ class HD44780U_LCD(BaseDevice):
 
     def move_to(self, x: int, y: int, update_cursor: bool = True):
         if update_cursor:
-            if x > self._max_cursor_x or y > self._max_cursor_y:
+            if 0 > x > self._max_cursor_x or 0 > y > self._max_cursor_y:
                 raise RuntimeError(
                     f"Coordinates must be within (0, 0) -> ({self._max_cursor_x}, {self._max_cursor_y}): ({x}, {y})"
                 )

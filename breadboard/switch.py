@@ -44,7 +44,7 @@ class Switch(StatefulDevice):
 
         self.poll_sleep = poll_sleep
 
-    def manage_state(self):
+    async def manage_state(self):
         """Toggle between states based on the pin's physical state."""
         pin_active = False
         for pin, state in self._pins_to_state.values():

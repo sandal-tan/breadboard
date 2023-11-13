@@ -12,6 +12,8 @@ Currently supported devices:
 - HD44780U/KS006U-based LCD's
 - Toggle buttons
 - Momentary Buttons
+- Button Matrices
+- Switches
 
 ## Usage & Installation
 

@@ -41,11 +41,10 @@ class ToggleButton(StatefulDevice):
         super().__init__(name, api)
 
         self._state = self.states[1] if self.input.value() else self.states[0]
-        self.manage_state = self.toggle_state
         self.poll_sleep = poll_sleep
         self._last_state = None
 
-    def toggle_state(self):
+    async def manage_state(self):
         """Toggle the internal state of the button between on and off."""
         if (value := self.input.value()) != self._last_state:
             if value:
@@ -94,7 +93,7 @@ class MomentaryButton(StatefulDevice):
         self.poll_sleep = poll_sleep
         self.button_debounce = button_debounce
 
-    def toggle_state(self):
+    async def toggle_state(self):
         """Make the momentary button act as a a toggle button."""
         if self.state == self.states[0]:
             self._state = self.states[1]
@@ -132,13 +131,12 @@ class VirtualToggleButton(StatefulDevice):
             )
 
         self._state = default_value if default_value is not None else self.states[0]
-        self.on_state_change = self.toggle_state
 
         self.group.route("/on")(self.on)
         self.group.route("/off")(self.off)
         self._events = {}  # see comment in _loop
 
-    def toggle_state(self):
+    async def manage_state(self):
         """Togglt the state between on and off on access."""
         if self.state == self.states[0]:
             self._state = self.states[1]
