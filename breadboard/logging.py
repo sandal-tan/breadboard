@@ -84,8 +84,7 @@ class Logger:
             message = message % params
 
         if kwargs:
-            ...
-            # custom_entries = "".join(f', "{k}": "{str(v).replace(\'"\', \'\\"\')}"' for k, v in kwargs.items())
+            custom_entries = "".join(f', "{k}": "{str(v)}"' for k, v in kwargs.items())
         else:
             custom_entries = ""
 
