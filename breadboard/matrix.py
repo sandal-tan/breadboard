@@ -19,7 +19,7 @@ class Matrix(StatefulDevice):
     """
 
     def __init__(
-        self, name, row_pins, column_pins, poll_sleep=0.1, button_debounce=0.25
+        self, name, row_pins, column_pins, poll_sleep=0.05, button_debounce=0.125
     ):
         super().__init__(name, api)
 
