@@ -3,7 +3,7 @@
     "proseWrap": "always",
     "printWidth": 120
   },
-  "version": "0.1.7",
+  "version": "0.1.8",
   "urls": [
     [
       "breadboard/matrix.py",
@@ -16,6 +16,10 @@
     [
       "breadboard/logging.py",
       "github:sandal-tan/breadboard/breadboard/logging.py"
+    ],
+    [
+      "breadboard/rotary_encoder.py",
+      "github:sandal-tan/breadboard/breadboard/rotary_encoder.py"
     ],
     [
       "breadboard/lcd.py",
@@ -67,3 +71,4 @@
     ]
   ]
 }
+
