@@ -2,7 +2,7 @@
 
 import asyncio
 
-from machine import Pin  # pyright: ignore [reportMissingImports]
+from machine import Signal, Pin  # pyright: ignore [reportMissingImports]
 
 from .base import StatefulDevice
 from .api import api
@@ -21,8 +21,16 @@ class _ButtonModes:
 
 ButtonModes = _ButtonModes()
 
+class Button(StatefulDevice):
 
-class ToggleButton(StatefulDevice):
+    def __init__(self, name: str, pin: int, poll_sleep: float, pull: str ='down'):
+        self.input = Signal(Pin(pin, Pin.IN), invert=(pull == 'up'))
+        self.poll_sleep = poll_sleep
+
+        super().__init__(name, api)
+
+
+class ToggleButton(Button):
     __doc__ = """A physical toggle button.
 
 
@@ -30,18 +38,16 @@ class ToggleButton(StatefulDevice):
         name: A name for the button
         pin: The GPIO pin on which the physical button is an input
         poll_sleep: How long to sleep between polling for the button
-        button_debounce: How long to sleep after a button state change has been detected
+        pull: Whether to use a pull up or pull down resistor with the button
 
     """
 
     _states = ["off", "on"]
 
-    def __init__(self, name, pin, poll_sleep=0.1):
-        self.input = Pin(pin, Pin.IN, Pin.PULL_DOWN)
-        super().__init__(name, api)
+    def __init__(self, name, pin, poll_sleep=0.1, pull: str = 'down'):
+        super().__init__(name, pin, poll_sleep, pull)
 
         self._state = self.states[1] if self.input.value() else self.states[0]
-        self.poll_sleep = poll_sleep
         self._last_state = None
 
     async def manage_state(self):
@@ -61,7 +67,8 @@ class ToggleButton(StatefulDevice):
             await asyncio.sleep(self.poll_sleep)
 
 
-class MomentaryButton(StatefulDevice):
+
+class MomentaryButton(Button):
     __doc__ = """A physical momentary button.
 
     Args:
@@ -70,6 +77,7 @@ class MomentaryButton(StatefulDevice):
         mode: A mode for the button's state management
         poll_sleep: How long to sleep between polling for the button
         button_debounce: How long to sleep after a button state change has been detected
+        pull: Whether to use a pull up or pull down resistor with the button
 
     """
 
@@ -82,31 +90,41 @@ class MomentaryButton(StatefulDevice):
         mode,
         poll_sleep=0.1,
         button_debounce=0.5,
+        pull='down'
     ):
-        self.input = Pin(pin, Pin.IN, Pin.PULL_DOWN)
-        super().__init__(name, api)
+        super().__init__(name, pin, poll_sleep, pull)
 
         self._state = self.states[1] if self.input.value() else self.states[0]
         self.mode = ButtonModes[mode]
         if self.mode == ButtonModes.toggle:
             self.manage_state = self.toggle_state
-        self.poll_sleep = poll_sleep
+        elif self.mode == ButtonModes.momentary:
+            self.manage_state = self.momentary_state
         self.button_debounce = button_debounce
+        self._last_value = None
+
+    async def momentary_state(self):
+        value = self.input.value()
+        if value != self._last_value:
+            self._last_value = value
+            self._state = self.states[value]
+            logger.debug(f"{self.name} state changed to {self.state}")
+            await asyncio.sleep(self.button_debounce)
+
 
     async def toggle_state(self):
         """Make the momentary button act as a a toggle button."""
-        if self.state == self.states[0]:
-            self._state = self.states[1]
-        else:
-            self._state = self.states[0]
-        logger.debug(f"{self.name} state changed to {self.state}")
-        return self.state
+        if self.input.value():
+            if self.state == self.states[0]:
+                self._state = self.states[1]
+            else:
+                self._state = self.states[0]
+            await asyncio.sleep(self.button_debounce)
+            logger.debug(f"{self.name} state changed to {self.state}")
 
     async def _loop(self, events):
         while True:
-            if self.input.value():
-                await self.process_events(events)
-                await asyncio.sleep(self.button_debounce)
+            await self.process_events(events)
             await asyncio.sleep(self.poll_sleep)
 
 

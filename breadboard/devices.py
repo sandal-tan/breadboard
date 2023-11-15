@@ -16,6 +16,7 @@ from .lcd import HD44780U_LCD
 from .logging import logger
 from .matrix import Matrix
 from .event_actions import parse_event_actions
+from .rotary_encoder import RotaryEncoder
 from .serial import Serial
 from .switch import Switch
 
@@ -34,6 +35,7 @@ DEVICE_MAP = {
     const("Switch"): Switch.try_to_instantiate(),
     const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
     const("Matrix"): Matrix.try_to_instantiate(),
+    const("RotaryEncoder"): RotaryEncoder.try_to_instantiate()
 }
 
 DEFAULT_CONFIG_FILE: str = const("breadboard.json")
