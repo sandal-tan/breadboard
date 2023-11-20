@@ -13,7 +13,7 @@ DEFAULT_COLOR = (0, 0, 0)
 
 
 class NeoPixel(BaseDevice):
-    __doc__ = """A single color NeoPixel
+    """A single color NeoPixel
 
     Args:
         name: A unique identifier for the LED strip
@@ -67,23 +67,19 @@ class NeoPixel(BaseDevice):
             np.write()
         await asyncio.sleep(DELAY)
 
-    @api.doc(
+    async def set(self, *, brightness: int):
         """Set the brightness of the NeoPixel
 
         Args:
             brightness: How bright to set the Neopixel (0-100)
 
         """
-    )
-    async def set(self, *, brightness: int):
         brightness = int(brightness)
         await self._write_to_neopixel((round(255 * brightness / 100),) * 3)
         return {"brightness": brightness}
 
-    @api.doc(
-        """Turn on the NeoPixel, restoring its state""",
-    )
     async def on(self):
+        """Turn on the NeoPixel, restoring its state"""
         for idx in range(len(self)):
             if idx in self.blacklist:
                 continue
@@ -94,10 +90,8 @@ class NeoPixel(BaseDevice):
         await asyncio.sleep(DELAY)
         return {}
 
-    @api.doc(
-        """Turn off the NeoPixel""",
-    )
     async def off(self):
+        """Turn off the NeoPixel"""
         for idx in range(len(self)):
             for np in self._nps:
                 np[idx] = (0, 0, 0)
@@ -110,7 +104,7 @@ class NeoPixel(BaseDevice):
 
 
 class RGBNeoPixel(NeoPixel):
-    __doc__ = """An RGB NeoPixel
+    """An RGB NeoPixel
 
     Args:
         name: A unique identifier for the LED strip
@@ -151,7 +145,15 @@ class RGBNeoPixel(NeoPixel):
         if default_on:
             asyncio.run(self.on())
 
-    @api.doc(
+    async def set(
+        self,
+        *,
+        red: int = None,
+        green: int = None,
+        blue: int = None,
+        brightness: int = None,
+        color: str = None,
+    ):
         """Set the color and brightness of the NeoPixel
 
         Args:
@@ -162,16 +164,6 @@ class RGBNeoPixel(NeoPixel):
             brightness: A relative brightness scaling across all channels (0-100)
 
         """
-    )
-    async def set(
-        self,
-        *,
-        red: int = None,
-        green: int = None,
-        blue: int = None,
-        brightness: int = None,
-        color: str = None,
-    ):
         brightness = int(brightness or self._default_brightness or 100)
         if red or green or blue:
             if red is None or green is None or blue is None:

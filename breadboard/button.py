@@ -2,36 +2,45 @@
 
 import asyncio
 
+from micropython import const  # pyright: ignore [reportMissingImports]
 from machine import Signal, Pin  # pyright: ignore [reportMissingImports]
 
-from .base import StatefulDevice
 from .api import api
+from .base import StatefulDevice
+from .const import DEFAULT_POLLING_SLEEP_TIME, DEFAULT_DEBOUNCE_TIME
 from .logging import logger
 
+DEFAULT_PULL_DIRECTION: str = const("down")
 
-class _ButtonModes:
-    toggle = 1
-    # TODO implement momentary button logic
-    momentary = 2
-
-    @classmethod
-    def __getitem__(cls, key):
-        return {"toggle": cls.toggle, "momentary": cls.momentary}[key]
-
-
-ButtonModes = _ButtonModes()
 
 class Button(StatefulDevice):
+    """Default button logic.
 
-    def __init__(self, name: str, pin: int, poll_sleep: float, pull: str ='down'):
-        self.input = Signal(Pin(pin, Pin.IN), invert=(pull == 'up'))
+    Args:
+        name: A name for the button
+        pin: The pin to which the button is connected
+        poll_sleep: How long to rest between checking button states
+        pull: The pull direction of pin. Down is active high, Up is active low.
+
+    """
+
+    _states = ["off", "on"]
+
+    def __init__(
+        self,
+        name: str,
+        pin: int,
+        poll_sleep: float = DEFAULT_POLLING_SLEEP_TIME,
+        pull: str = "down",
+    ):
+        self.input = Signal(Pin(pin, Pin.IN), invert=(pull == "up"))
         self.poll_sleep = poll_sleep
 
         super().__init__(name, api)
 
 
 class ToggleButton(Button):
-    __doc__ = """A physical toggle button.
+    """A physical toggle button.
 
 
     Args:
@@ -42,9 +51,13 @@ class ToggleButton(Button):
 
     """
 
-    _states = ["off", "on"]
-
-    def __init__(self, name, pin, poll_sleep=0.1, pull: str = 'down'):
+    def __init__(
+        self,
+        name,
+        pin,
+        poll_sleep: float = DEFAULT_POLLING_SLEEP_TIME,
+        pull: str = "down",
+    ):
         super().__init__(name, pin, poll_sleep, pull)
 
         self._state = self.states[1] if self.input.value() else self.states[0]
@@ -67,9 +80,17 @@ class ToggleButton(Button):
             await asyncio.sleep(self.poll_sleep)
 
 
+class _ButtonModes:
+    toggle = 1
+    momentary = 2
+
+    @classmethod
+    def __getitem__(cls, key):
+        return {"toggle": cls.toggle, "momentary": cls.momentary}[key]
+
 
 class MomentaryButton(Button):
-    __doc__ = """A physical momentary button.
+    """A physical momentary button.
 
     Args:
         name: A name for the button
@@ -81,36 +102,42 @@ class MomentaryButton(Button):
 
     """
 
-    _states = ["off", "on"]
-
     def __init__(
         self,
         name,
         pin,
-        mode,
-        poll_sleep=0.1,
-        button_debounce=0.5,
-        pull='down'
+        mode=_ButtonModes.momentary,
+        poll_sleep=DEFAULT_POLLING_SLEEP_TIME,
+        button_debounce=DEFAULT_DEBOUNCE_TIME,
+        pull="down",
     ):
         super().__init__(name, pin, poll_sleep, pull)
 
         self._state = self.states[1] if self.input.value() else self.states[0]
-        self.mode = ButtonModes[mode]
-        if self.mode == ButtonModes.toggle:
+        # At a class level, you can't subscript a type à la `_ButtonModes["toggle"]`
+        # so call the underlying method
+        self.mode = _ButtonModes.__getitem__(mode)
+        if self.mode == _ButtonModes.toggle:
             self.manage_state = self.toggle_state
-        elif self.mode == ButtonModes.momentary:
+        elif self.mode == _ButtonModes.momentary:
             self.manage_state = self.momentary_state
         self.button_debounce = button_debounce
         self._last_value = None
 
     async def momentary_state(self):
+        """Register a button press.
+
+        As a momentary button, the on-off state change will happen on every button press.
+        Therefore the on-state change will correspond to the rising edge and the off-state
+        the falling edge.
+
+        """
         value = self.input.value()
         if value != self._last_value:
             self._last_value = value
             self._state = self.states[value]
             logger.debug(f"{self.name} state changed to {self.state}")
             await asyncio.sleep(self.button_debounce)
-
 
     async def toggle_state(self):
         """Make the momentary button act as a a toggle button."""
@@ -129,14 +156,15 @@ class MomentaryButton(Button):
 
 
 class VirtualToggleButton(StatefulDevice):
-    __doc__ = """A virtual toggle button, accessible via API.
+    """A virtual toggle button, accessible via API.
 
     Args:
         name: A unique identifier for the button
         pin: The number of the GPIO to use as a signal output
 
     """
-    _states = ["off", "on"]
+
+    _states = Button._states
 
     def __init__(self, name, pin, default_value=None):
         self.output = Pin(pin, Pin.OUT, Pin.PULL_UP)
@@ -148,7 +176,7 @@ class VirtualToggleButton(StatefulDevice):
                 f"Default value for {self.name} must be one of: {self.states}"
             )
 
-        self._state = default_value if default_value is not None else self.states[0]
+        self._state = default_value or self.states[0]
 
         self.group.route("/on")(self.on)
         self.group.route("/off")(self.off)
@@ -169,15 +197,15 @@ class VirtualToggleButton(StatefulDevice):
         # events.
         self._events = events
 
-    @api.doc("""Turn on the virtual button.""")
     async def on(self):
+        """Turn on the virtual button."""
         self.output.on()
         if self.state == self.states[0]:
             await self.process_events(self._events)
         return {"state": self.state}
 
-    @api.doc("""Turn off the virtual button.""")
     async def off(self):
+        """Turn off the virtual button."""
         self.output.off()
         if self.state == self.states[1]:
             await self.process_events(self._events)

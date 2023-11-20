@@ -1,5 +1,5 @@
 CONFIG_FILE ?= breadboard.json
-BUILD_FILES = $(shell ls -d ./breadboard/**.py)
+BUILD_FILES = $(shell find breadboard -type f -name \*.py)
 
 test: deploy
 	#ampy run ./tests/test_led.py
@@ -20,14 +20,19 @@ configure:
 	@poetry run mpremote cp $(CONFIG_FILE) :breadboard.json
 
 deploy: build 
-	@poetry run mpremote cp -r ./breadboard/**.mpy :
+	@cd build && poetry run mpremote cp -r breadboard : && cd -
 	@poetry run mpremote cp main.py :
 
-
 build:
+	@mkdir -p build/breadboard/api
 	@for file in $(BUILD_FILES) ; do \
-		poetry run mpy-cross $$file ; \
+		poetry run mpy-cross -o "build/$${file%.py}.mpy" $$file ; \
 	done
 
 clean:
-	@rm -rf breadboard/**.mpy
+	@rm -rf build/
+
+echo:
+	@for file in $(BUILD_FILES) ; do \
+		echo $${file%.py}.mpy ; \
+	done

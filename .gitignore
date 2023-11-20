@@ -2,3 +2,4 @@
 breadboard.json
 *.vim
 *.mpy
+build/

@@ -8,7 +8,6 @@ from machine import Pin  # pyright: ignore [reportMissingImports]
 
 from .api import api
 from .base import BaseDevice
-from .logging import logger
 
 HD44780U_LCD_CLEAR_SLEEP_TIME: int = const(1600)
 """The number of microseconds to wait after clearing the display."""
@@ -102,6 +101,14 @@ class HD44780U_LCD(BaseDevice):
         sleep_us(50)
 
     def move_to(self, x: int, y: int, update_cursor: bool = True):
+        """Move the cursor to a specified coordinate.
+
+        Args:
+            x: The column coordinate to go to
+            y: The row coordinate to go to
+            update_cursor: Whether or not to update the display's cursor.
+
+        """
         if update_cursor:
             if 0 > x > self._max_cursor_x or 0 > y > self._max_cursor_y:
                 raise RuntimeError(
@@ -165,7 +172,6 @@ class HD44780U_LCD(BaseDevice):
                 y = 0
         self.move_to(x, y, newline)
 
-    @api.doc("Write a string to the display")
     async def write(self, string: str):
         """Write a string to the display."""
         for char in string:
@@ -182,8 +188,8 @@ class HD44780U_LCD(BaseDevice):
                 self._rs.value(rs)
                 self._enable()
 
-    @api.doc("clear the display")
     async def clear(self):
+        """Clear the display"""
         self._set_data(
             0,
             0,

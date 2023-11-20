@@ -9,7 +9,7 @@ from .logging import logger
 WIFI_MODES = ("client", "ap")
 
 AP_NETWORK_DEFAULT_NAME = "breadboard"
-AP_NETWORK_DEFAULT_PASSWORD = "cheesplate"
+AP_NETWORK_DEFAULT_PASSWORD = "cheeseplate"
 DEFAULT_PORT = 80
 ALLOWABLE_HOSTS = "0.0.0.0"
 
@@ -46,15 +46,26 @@ class Network:
                 ssid,
                 password or None,
             )
-            logger.info(f"Connected to {ssid} at {self._network.ifconfig()[0]}")
-        elif mode == WIFI_MODES[1]:
+            sleep(0.5)
+            if not self._network.isconnected():
+                mode = WIFI_MODES[1]
+                ssid = ""
+                password = ""
+            else:
+                logger.info(f"Connected to {ssid} at {self._network.ifconfig()[0]}")
+
+        if mode == WIFI_MODES[1]:
             self._network = WLAN(AP_IF)  # pyright: ignore [reportGeneralTypeIssues]
             self._network.config(
                 essid=ssid or AP_NETWORK_DEFAULT_NAME,
                 password=password or AP_NETWORK_DEFAULT_PASSWORD,
             )
             self._network.active(True)
-        else:
+            logger.info(
+                f"Created network {ssid or AP_NETWORK_DEFAULT_NAME}, device at {self._network.ifconfig()[0]}"
+            )
+            logger.debug('Password is "%s"', password or AP_NETWORK_DEFAULT_PASSWORD)
+        elif mode != WIFI_MODES[0]:
             raise Exception(f"Unknown WiFi Mode: {mode}")
 
         while self._network.active() == False:

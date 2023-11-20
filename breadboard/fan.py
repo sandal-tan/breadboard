@@ -8,7 +8,7 @@ from .logging import logger
 
 
 class Fan(BaseDevice):
-    __doc__ = """A 4-Pin PWM Fan.
+    """A 4-Pin PWM Fan.
 
     Args:
         name: A unique identifier for the fan. Will be used as an API path
@@ -40,13 +40,13 @@ class Fan(BaseDevice):
 
         self._set(self._speed_value)
 
-    @api.doc("""Turn the fan on to the last set speed""")
     async def on(self):
+        """Turn the fan on to the last set speed"""
         self._set(self._speed_value)
         return {}
 
-    @api.doc("""Turn off the fan""")
     async def off(self):
+        """Turn off the fan"""
         self._set(0)
         return {}
 
@@ -56,7 +56,7 @@ class Fan(BaseDevice):
 
         self._pwm_fan.duty_u16(value)
 
-    @api.doc(
+    async def set(self, *, value: int):
         """Set the speed of the fan
 
         Args:
@@ -66,8 +66,6 @@ class Fan(BaseDevice):
             The set speed value
 
         """
-    )
-    async def set(self, *, value: int):
         self._speed_value = int(value)
         self._set(self._speed_value)
         return {}

@@ -60,15 +60,13 @@ class Serial(BaseDevice):
 
         self.group.route("/write")(self.write)
 
-    @api.doc(
+    async def write(self, *, data: str):
         """Write data to the connected serial device.
 
         Args:
             data: The data to write
 
         """
-    )
-    async def write(self, *, data: str):
         bytes_written = self._uart.write(
             f"{data}\n".encode(),
         )

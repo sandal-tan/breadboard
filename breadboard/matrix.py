@@ -1,3 +1,5 @@
+"""A matrix of buttons."""
+
 import asyncio
 from machine import Pin, Signal  # pyright: ignore [reportMissingImports]
 
@@ -33,6 +35,7 @@ class Matrix(StatefulDevice):
         self.button_debounce = button_debounce
 
     async def manage_state(self):
+        """Activate columns and poll rows to determine which buttons are pressed."""
         state = None
         for column_idx, column in enumerate(self.columns):
             column.on()

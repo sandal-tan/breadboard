@@ -15,8 +15,8 @@ from .base import BaseDevice
 from .logging import logger
 
 CCS811_HARDWARE_ADDRS = (
-    0x5A,
-    0x5B,
+    const(0x5A),
+    const(0x5B),
 )
 """The possible hardware address of the CCS811 sensor.
 
@@ -24,7 +24,7 @@ Sources:
     - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=4&zoom=100,96,177
 """
 
-CCS811_DELAY: int = 0.1
+CCS811_DELAY: float = const(0.1)
 
 # Registers
 # Sources:
@@ -158,7 +158,7 @@ class CCS811(BaseDevice):
         )
         sleep_ms(CCS811_DELAY)
 
-    @api.doc(
+    async def mode(self, mode=None):
         """Set the chip mode.
 
         Args:
@@ -174,8 +174,6 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=16&zoom=100,96,177
 
         """
-    )
-    async def mode(self, mode=None):
         if mode is not None:
             mode = int(mode)
             if mode == 4:
@@ -211,7 +209,7 @@ class CCS811(BaseDevice):
             "error": bool(status_byte & 1),
         }
 
-    @api.doc(
+    async def status(self):
         """Read the status of the CCS811.
 
         Returns:
@@ -221,8 +219,6 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=16&zoom=100,96,177
 
         """
-    )
-    async def status(self):
         status_byte = int_from_big_bytes(
             self.i2c_bus.readfrom_mem(
                 self.device_addr,
@@ -232,7 +228,7 @@ class CCS811(BaseDevice):
         await asyncio.sleep(CCS811_DELAY / 1000)
         return self._parse_status(status_byte)
 
-    @api.doc(
+    async def data(self, status=False, error=False):
         """Read the data from the sensor
 
         Args:
@@ -246,8 +242,6 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=18&zoom=100,96,177
 
         """
-    )
-    async def data(self, status=False, error=False):
         data = self.i2c_bus.readfrom_mem(
             self.device_addr,
             *CCS811_ALG_REG,
@@ -282,7 +276,7 @@ class CCS811(BaseDevice):
             "HEATER_SUPPLY": bool(error_byte >> 5 & 1),
         }
 
-    @api.doc(
+    async def error(self):
         """Get the error state of the sensor.
 
         Returns:
@@ -292,8 +286,6 @@ class CCS811(BaseDevice):
             - https://cdn-shop.adafruit.com/product-files/3566/3566_datasheet.pdf#page=22&zoom=100,96,177
 
         """
-    )
-    async def error(self):
         data = int_from_big_bytes(
             self.i2c_bus.readfrom_mem(
                 self.device_addr,
@@ -303,8 +295,10 @@ class CCS811(BaseDevice):
         return self._parse_error(data)
 
 
-DHTXX_EXPECTED_BITS = 40  # 2 bytes each temperature and humidity, 1 byte checksum
-_DHTXX_SM_CLOCK_FREQ = 500000  # 1 / 500Khz = 2us cycle
+DHTXX_EXPECTED_BITS = const(
+    40
+)  # 2 bytes each temperature and humidity, 1 byte checksum
+_DHTXX_SM_CLOCK_FREQ = const(500000)  # 1 / 500Khz = 2us cycle
 
 
 @asm_pio(
@@ -401,17 +395,15 @@ class DHTXX(BaseDevice):
             jmp_pin=self._data_pin,
         )
 
-    @api.doc(
+    async def data(self):
         """Read data from the sensor
 
-    A new measurement will only be periodically.
+        A new measurement will only be periodically.
 
-    Returns:
-        JSON containing the temperature and humidity readings.
+        Returns:
+            JSON containing the temperature and humidity readings.
 
-    """
-    )
-    async def data(self):
+        """
         current_time = time()
         if current_time - self._last_measurement_time > self._rest_time:
             logger.debug(

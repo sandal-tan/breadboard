@@ -1,21 +1,18 @@
 """Aggregate and manage attached devices via a configuration file."""
-import os
+import asyncio
 import json
 
-from micropython import const  # pyright: ignore
-import asyncio
-import gc
+from micropython import const  # pyright: ignore [reportMissingImports]
 
-from .button import VirtualToggleButton, MomentaryButton, ToggleButton
-from .fan import Fan
-from .led import NeoPixel, OnboardLED, RGBNeoPixel
-from .network import Network
+from .api import FileResult, HTTP_METHODS, MultiPartUpload, api
+from .button import MomentaryButton, ToggleButton, VirtualToggleButton
 from .environment import CCS811, DHT11, DHT22
-from .api import api
-from .lcd import HD44780U_LCD
-from .logging import logger
-from .matrix import Matrix
 from .event_actions import parse_event_actions
+from .fan import Fan
+from .lcd import HD44780U_LCD
+from .led import NeoPixel, OnboardLED, RGBNeoPixel
+from .matrix import Matrix
+from .network import Network
 from .rotary_encoder import RotaryEncoder
 from .serial import Serial
 from .switch import Switch
@@ -35,7 +32,7 @@ DEVICE_MAP = {
     const("Switch"): Switch.try_to_instantiate(),
     const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
     const("Matrix"): Matrix.try_to_instantiate(),
-    const("RotaryEncoder"): RotaryEncoder.try_to_instantiate()
+    const("RotaryEncoder"): RotaryEncoder.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = const("breadboard.json")
@@ -54,26 +51,6 @@ EVENTS_CONTEXT_KEY: str = const("events")
 """The key for the events configuration section."""
 
 
-def _curry(func, params):
-    """Bake a set of parameters to a asynchronous function call as a function."""
-
-    async def _inner():
-        return await func(**params)
-
-    return _inner
-
-
-def _execute_functions(functions):
-    """Construct an asynchronous function to execute a list of asynchronous functions."""
-
-    async def _inner():
-        for function in functions:
-            await function()
-        return {}
-
-    return _inner
-
-
 class Devices:
     """Manage attached devices.
 
@@ -86,7 +63,8 @@ class Devices:
     """
 
     def __init__(self, path: str = DEFAULT_CONFIG_FILE):
-        with open(path, "r") as fp:
+        self._config_path = path
+        with open(self._config_path, "r") as fp:
             device_json = json.load(fp)
 
         if network_json := device_json.get(NETWORK_CONFIG_KEY):
@@ -119,32 +97,6 @@ class Devices:
         self.devices = {k: v for k, v in self.devices.items() if v}
         self.devices["_OnboardLED"] = OnboardLED()
 
-        for chain_name, steps in device_json.get(CHAINS_CONFIG_KEY, {}).items():
-            compiled_steps = []
-
-            for step in steps:
-                try:
-                    # TODO should these share the same underlying actions as events?
-                    chain_func = getattr(
-                        self.devices[step.pop("device")],
-                        step.pop("action"),
-                    )
-                    compiled_steps.append(_curry(chain_func, step))
-                except KeyError as e:
-                    logger.error(
-                        "Failed to find device %s for action %s", str(e), chain_name
-                    )
-                    break
-                except Exception as e:
-                    logger.error("Failed to load action: %s", chain_name)
-                    logger.error(str(e))
-                    break
-            else:
-                if self._network:
-                    api.route(f"/chain/{chain_name}")(
-                        _execute_functions(compiled_steps)
-                    )
-
         self.events = {}
         for event in device_json.get(EVENTS_CONTEXT_KEY, []):
             device = event.pop("device")
@@ -157,10 +109,16 @@ class Devices:
                 parse_event_actions(event.pop("action"), devices=self.devices)
             )
 
-        gc.collect()
+        api.route("/config")(self.read_config)
+        api.route("/config", method=HTTP_METHODS.POST)(self.write_config)
 
-        if self._network:
-            api.documentation  # Generate the documentation
+    async def read_config(self):
+        """Read the system configuration."""
+        return FileResult(path=self._config_path)
+
+    async def write_config(self, config: MultiPartUpload):
+        """Write a configuration."""
+        return {}
 
     def __getitem__(self, key):
         return self.devices[key]
