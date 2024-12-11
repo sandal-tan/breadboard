@@ -16,6 +16,7 @@ from .network import Network
 from .rotary_encoder import RotaryEncoder
 from .serial import Serial
 from .switch import Switch
+from .ir import IRReceiver
 
 DEVICE_MAP = {
     const("Fan"): Fan.try_to_instantiate(),
@@ -33,6 +34,7 @@ DEVICE_MAP = {
     const("HD44780U_LCD"): HD44780U_LCD.try_to_instantiate(),
     const("Matrix"): Matrix.try_to_instantiate(),
     const("RotaryEncoder"): RotaryEncoder.try_to_instantiate(),
+    const("IRReceiver"): IRReceiver.try_to_instantiate(),
 }
 
 DEFAULT_CONFIG_FILE: str = const("breadboard.json")
@@ -67,10 +69,6 @@ class Devices:
         with open(self._config_path, "r") as fp:
             device_json = json.load(fp)
 
-        if network_json := device_json.get(NETWORK_CONFIG_KEY):
-            self._network = Network(**network_json)
-        else:
-            self._network = None
 
         self.devices = {
             name: DEVICE_MAP[entry["device"]](
@@ -111,6 +109,11 @@ class Devices:
 
         api.route("/config")(self.read_config)
         api.route("/config", method=HTTP_METHODS.POST)(self.write_config)
+
+        if network_json := device_json.get(NETWORK_CONFIG_KEY):
+            self._network = Network(**network_json)
+        else:
+            self._network = None
 
     async def read_config(self):
         """Read the system configuration."""

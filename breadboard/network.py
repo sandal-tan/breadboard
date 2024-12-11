@@ -2,7 +2,12 @@
 
 from time import sleep
 
-from network import WLAN, STA_IF, AP_IF  # pyright: ignore [reportMissingImports]
+from network import (
+    WLAN,
+    STA_IF,
+    AP_IF,
+    hostname as hostname_,
+)  # pyright: ignore [reportMissingImports]
 
 from .logging import logger
 
@@ -12,6 +17,9 @@ AP_NETWORK_DEFAULT_NAME = "breadboard"
 AP_NETWORK_DEFAULT_PASSWORD = "cheeseplate"
 DEFAULT_PORT = 80
 ALLOWABLE_HOSTS = "0.0.0.0"
+
+DEFAULT_RETRIES = 5
+RETRY_SCALING_FACTOR = 2
 
 
 class Network:
@@ -23,6 +31,7 @@ class Network:
         mode: What mode the network should be put in. `client` if you are connecting to an existing network or `ap` if you are creating one
         port: The port on which the API should run
         hosts: Hosts allowed to access this service
+        hostname: A hostname for the device
 
     """
 
@@ -33,38 +42,60 @@ class Network:
         mode=None,
         port=DEFAULT_PORT,
         hosts=ALLOWABLE_HOSTS,
+        hostname="breadboard",
     ):
+        hostname_(hostname)
+        logger.info("Device hostname: %s", hostname)
         if not ssid:
             mode = WIFI_MODES[1]  # AP mode by default if no SSID given
         elif mode is None:
             mode = WIFI_MODES[0]
 
         if mode == WIFI_MODES[0]:
-            self._network = WLAN(STA_IF)  # pyright: ignore [reportGeneralTypeIssues]
-            self._network.active(True)
-            self._network.connect(
-                ssid,
-                password or None,
-            )
-            sleep(0.5)
-            if not self._network.isconnected():
-                mode = WIFI_MODES[1]
-                ssid = ""
-                password = ""
+            for idx in range(DEFAULT_RETRIES):
+                self._network = WLAN(
+                    STA_IF
+                )  # pyright: ignore [reportGeneralTypeIssues]
+                self._network.active(True)
+                self._network.connect(
+                    ssid,
+                    password or None,
+                )
+                sleep(
+                    0.5
+                    * (
+                        (1 + idx)
+                        + (idx / ((DEFAULT_RETRIES - 1) / RETRY_SCALING_FACTOR))
+                    )
+                )
+                if self._network.isconnected():
+                    logger.info(f"Connected to {ssid} at {self._network.ifconfig()[0]}")
+                    break
+                logger.debug(
+                    *(
+                        ("Retrying network connection %d/%d", idx + 2, DEFAULT_RETRIES)
+                        if idx < DEFAULT_RETRIES - 1
+                        else ("Cannot connect to network `%s`", ssid)
+                    )
+                )
             else:
-                logger.info(f"Connected to {ssid} at {self._network.ifconfig()[0]}")
+                mode = WIFI_MODES[1]
+                ssid = hostname
+                password = ""
 
         if mode == WIFI_MODES[1]:
             self._network = WLAN(AP_IF)  # pyright: ignore [reportGeneralTypeIssues]
+            ssid = ssid or AP_NETWORK_DEFAULT_NAME
+            password = password or AP_NETWORK_DEFAULT_PASSWORD
             self._network.config(
-                essid=ssid or AP_NETWORK_DEFAULT_NAME,
-                password=password or AP_NETWORK_DEFAULT_PASSWORD,
+                essid=ssid,
+                password=password,
             )
             self._network.active(True)
             logger.info(
-                f"Created network {ssid or AP_NETWORK_DEFAULT_NAME}, device at {self._network.ifconfig()[0]}"
+                f"Created network {ssid}, device at {self._network.ifconfig()[0]}"
             )
-            logger.debug('Password is "%s"', password or AP_NETWORK_DEFAULT_PASSWORD)
+            logger.debug('Password is "%s"', password)
         elif mode != WIFI_MODES[0]:
             raise Exception(f"Unknown WiFi Mode: {mode}")
 

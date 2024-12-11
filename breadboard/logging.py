@@ -14,7 +14,7 @@ LOGGING_LEVELS = {
 
 REV_LOGGING_LEVELS = {v: k for k, v in LOGGING_LEVELS.items()}
 
-LOG_MSG_TEMPLATE = '{"timestamp": "%(time)s", "level": "%(level)s"%(custom_entries)s, "message": "%(message)s"}'  # TODO how to include message source? __file__?
+LOG_MSG_TEMPLATE = '{"timestamp": "%(time)s", "level": "%(level)s"%(custom_entries)s}'  # TODO how to include message source? __file__?
 
 # TODO: make alert class dynamic
 HTML_LOG_MSG_TEMPLATE = (
@@ -77,11 +77,15 @@ class Logger:
             raise Exception(f"Unknown logging level: {value}")
         self._level = value
 
-    def _print_log(self, message, *params, requested_level, **kwargs):
-        if isinstance(message, Exception):
-            message = _exception_to_str(message)
-        else:
-            message = message % params
+    def _print_log(self, *params, requested_level, **kwargs):
+        if params:
+            message = params[0]
+            if isinstance(message, Exception):
+                message = _exception_to_str(message)
+            else:
+                message = message % params[1:]
+
+            kwargs["message"] = message.replace("\n", " ")
 
         if kwargs:
             custom_entries = "".join(f', "{k}": "{str(v)}"' for k, v in kwargs.items())
@@ -103,7 +107,6 @@ class Logger:
                         % {
                             "time": format_time_tuple(time.localtime(time.time())),
                             "level": REV_LOGGING_LEVELS[requested_level].lower(),
-                            "message": message.replace("\n", " "),
                             "custom_entries": custom_entries,
                         }
                         + "\n"

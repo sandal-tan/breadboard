@@ -33,7 +33,7 @@ class Button(StatefulDevice):
         poll_sleep: float = DEFAULT_POLLING_SLEEP_TIME,
         pull: str = "down",
     ):
-        self.input = Signal(Pin(pin, Pin.IN), invert=(pull == "up"))
+        self.input = Signal(Pin(pin, Pin.IN, Pin.PULL_DOWN), invert=(pull == "up"))
         self.poll_sleep = poll_sleep
 
         super().__init__(name, api)

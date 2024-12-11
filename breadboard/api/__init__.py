@@ -206,7 +206,15 @@ class API:
         def _wrap_func(endpoint):
             if route not in self._routes:
                 self._routes[route] = {}
-            self._routes[route][method] = endpoint
+
+            if method not in self._routes[route]:
+                logger.debug(
+                    "Registering route for %s [%s] - %s",
+                    route,
+                    method,
+                    endpoint.__name__,
+                )
+                self._routes[route][method] = endpoint
 
             return endpoint
 
@@ -326,6 +334,7 @@ class API:
         params = {}
         source = ":".join(str(v) for v in reader.get_extra_info("peername"))
         # ---
+        logger.debug("Communcation opened with %s", source)
 
         # --- Breakdown request ---
         request = (await reader.readline()).decode()
